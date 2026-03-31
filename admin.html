@@ -1,0 +1,1793 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Studio PL — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --dark: #1a1a1a; --dark2: #242424; --dark3: #2e2e2e;
+      --gold: #c9a96e; --gold-light: #e8d5b0;
+      --muted: #666; --border: #333; --white: #fff;
+      --success: #5a8a6a; --error: #c0392b; --cream: #f5f0eb;
+    }
+    body { font-family: 'Montserrat', sans-serif; background: var(--dark); color: var(--gold-light); min-height: 100vh; display: flex; }
+
+    /* LOGIN */
+    #login-screen { position: fixed; inset: 0; background: var(--dark); display: flex; align-items: center; justify-content: center; z-index: 200; }
+    .login-box { max-width: 380px; width: 100%; padding: 48px; border: 1px solid var(--border); }
+    .login-box h1 { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; color: var(--gold-light); letter-spacing: 4px; margin-bottom: 4px; }
+    .login-box p { font-size: 10px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-bottom: 32px; }
+
+    /* SIDEBAR */
+    aside { width: 220px; background: var(--dark2); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; min-height: 100vh; position: sticky; top: 0; height: 100vh; }
+    .sidebar-logo { padding: 28px 24px; border-bottom: 1px solid var(--border); }
+    .sidebar-logo .name { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--gold-light); letter-spacing: 4px; }
+    .sidebar-logo .sub { font-size: 9px; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+    nav { padding: 16px 0; flex: 1; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 24px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); cursor: pointer; transition: all .2s; border-left: 2px solid transparent; }
+    .nav-item:hover { color: var(--gold-light); background: var(--dark3); }
+    .nav-item.active { color: var(--gold); border-left-color: var(--gold); background: var(--dark3); }
+    .nav-icon { font-size: 16px; }
+    .sidebar-footer { padding: 20px 24px; border-top: 1px solid var(--border); }
+    .btn-logout-admin { background: none; border: 1px solid var(--border); color: var(--muted); padding: 10px; width: 100%; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; font-family: 'Montserrat', sans-serif; transition: all .2s; }
+    .btn-logout-admin:hover { border-color: var(--error); color: var(--error); }
+
+    /* MAIN */
+    main { flex: 1; overflow: auto; min-width: 0; }
+    .page { display: none; padding: 40px; }
+    .page.active { display: block; }
+    .page-header { margin-bottom: 32px; display: flex; align-items: flex-end; justify-content: space-between; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 36px; font-weight: 300; color: var(--gold-light); }
+    .page-sub { font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-top: 4px; }
+
+    /* STATS */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 40px; }
+    .stat-card { background: var(--dark2); border: 1px solid var(--border); padding: 24px; }
+    .stat-value { font-family: 'Cormorant Garamond', serif; font-size: 48px; font-weight: 300; color: var(--gold); line-height: 1; margin-bottom: 8px; }
+    .stat-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+
+    /* TABLE */
+    .table-wrap { background: var(--dark2); border: 1px solid var(--border); overflow: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { border-bottom: 1px solid var(--border); }
+    th { padding: 14px 20px; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    td { padding: 14px 20px; font-size: 13px; color: var(--gold-light); border-bottom: 1px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--dark3); }
+    .badge { display: inline-block; padding: 3px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 1px; }
+    .badge.activo { background: rgba(90,138,106,.2); color: #8dc8a0; border: 1px solid rgba(90,138,106,.3); }
+    .badge.inactivo { background: rgba(192,57,43,.1); color: #e08070; border: 1px solid rgba(192,57,43,.2); }
+    .badge.cancelada { background: rgba(192,57,43,.1); color: #e08070; border: 1px solid rgba(192,57,43,.2); }
+
+    /* BOTONES */
+    .btn { padding: 10px 20px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; font-family: 'Montserrat', sans-serif; transition: all .2s; border: none; }
+    .btn-gold { background: var(--gold); color: var(--dark); }
+    .btn-gold:hover { background: var(--gold-light); }
+    .btn-outline { background: none; border: 1px solid var(--border); color: var(--muted); }
+    .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+    .btn-danger { background: none; border: 1px solid rgba(192,57,43,.3); color: #e08070; }
+    .btn-danger:hover { border-color: var(--error); color: var(--error); }
+    .btn-sm { padding: 6px 12px; font-size: 9px; }
+
+    /* MODAL */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; z-index: 500; padding: 20px; opacity: 0; visibility: hidden; transition: opacity .2s; }
+    .modal-overlay.open { opacity: 1; visibility: visible; }
+    .modal { background: var(--dark2); border: 1px solid var(--border); max-width: 480px; width: 100%; padding: 36px; }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; margin-bottom: 24px; color: var(--gold-light); }
+    .form-group { margin-bottom: 18px; }
+    .form-group label { display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+    .form-group input, .form-group select { width: 100%; background: var(--dark3); border: 1px solid var(--border); padding: 11px 14px; font-size: 13px; font-family: 'Montserrat', sans-serif; color: var(--gold-light); outline: none; transition: border-color .2s; }
+    .form-group input:focus, .form-group select:focus { border-color: var(--gold); }
+    .form-group select option { background: var(--dark2); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .msg { padding: 12px 14px; font-size: 12px; margin-bottom: 16px; }
+    .msg.success { background: rgba(90,138,106,.15); color: #8dc8a0; border: 1px solid rgba(90,138,106,.3); }
+    .msg.error { background: rgba(192,57,43,.1); color: #e08070; border: 1px solid rgba(192,57,43,.2); }
+    .modal-btns { display: flex; gap: 10px; margin-top: 24px; }
+
+    /* FORM INPUTS GENERALES */
+    input[type="password"], input[type="email"], input[type="text"] { width: 100%; background: var(--dark3); border: 1px solid var(--border); padding: 13px 16px; font-size: 14px; font-family: 'Montserrat', sans-serif; color: var(--gold-light); outline: none; transition: border-color .2s; }
+    input:focus { border-color: var(--gold); }
+    .btn-primary { width: 100%; background: var(--gold); color: var(--dark); border: none; padding: 15px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; cursor: pointer; font-family: 'Montserrat', sans-serif; margin-top: 8px; }
+    .btn-primary:hover { background: var(--gold-light); }
+    .empty-row td { text-align: center; color: var(--muted); font-size: 13px; padding: 40px; font-style: italic; }
+    .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--gold); border-radius: 50%; animation: spin .7s linear infinite; margin: 40px auto; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── MOBILE ───────────────────────────────────────────── */
+    /* Botón hamburguesa */
+    #menu-toggle {
+      display: none;
+      position: fixed;
+      top: 14px; left: 14px;
+      z-index: 400;
+      background: var(--dark2);
+      border: 1px solid var(--border);
+      color: var(--gold);
+      width: 40px; height: 40px;
+      font-size: 18px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Overlay oscuro al abrir el sidebar */
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 150;
+    }
+
+
+
+    /* ══════════════════════════════════════════════════
+       MOBILE RESPONSIVE — COMPLETO
+    ══════════════════════════════════════════════════ */
+
+    /* Boton hamburguesa */
+    #menu-toggle {
+      display: none;
+      position: fixed;
+      top: 12px; left: 12px;
+      z-index: 400;
+      background: var(--dark2);
+      border: 1px solid var(--border);
+      color: var(--gold);
+      width: 44px; height: 44px;
+      font-size: 20px;
+      cursor: pointer;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+    }
+
+    #sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.65);
+      z-index: 150;
+    }
+
+    @media (max-width: 768px) {
+
+      /* Layout base */
+      body { display: block; }
+      #menu-toggle { display: flex; }
+
+      /* Sidebar deslizable */
+      aside {
+        position: fixed;
+        top: 0; left: 0;
+        height: 100%;
+        z-index: 200;
+        transform: translateX(-100%);
+        transition: transform .28s cubic-bezier(.4,0,.2,1);
+        width: 260px;
+        overflow-y: auto;
+      }
+      aside.open { transform: translateX(0); }
+      #sidebar-overlay.open { display: block; }
+
+      /* Main */
+      main {
+        width: 100%;
+        padding-top: 0;
+        margin-top: 0;
+      }
+
+      /* Pages */
+      .page {
+        padding: 68px 14px 24px;
+        max-width: 100%;
+      }
+
+      /* Header de pagina */
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+      .page-header > div:last-child { width: 100%; }
+      .page-header button,
+      .page-header input { width: 100%; }
+      .page-title { font-size: 24px; }
+      .page-sub { font-size: 10px; }
+
+      /* Stats grid 2 columnas */
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+      .stat-card { padding: 14px 12px; }
+      .stat-value { font-size: 32px; margin-bottom: 4px; }
+      .stat-label { font-size: 9px; letter-spacing: 1px; }
+
+      /* Tablas scrolleables */
+      .table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 2px;
+      }
+      table { min-width: 480px; }
+      th { padding: 10px 10px; font-size: 9px; }
+      td { padding: 10px 10px; font-size: 12px; }
+
+      /* Botones en tabla mas grandes para touch */
+      .btn-sm {
+        padding: 7px 10px;
+        font-size: 9px;
+        min-height: 34px;
+      }
+      td > div[style*="display:flex"],
+      td > div[style*="gap"] {
+        flex-wrap: wrap;
+        gap: 4px !important;
+      }
+
+      /* Modales bottom sheet */
+      .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+      }
+      .modal {
+        max-width: 100%;
+        width: 100%;
+        max-height: 92vh;
+        overflow-y: auto;
+        border-radius: 12px 12px 0 0;
+        padding: 20px 16px 32px;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+      }
+      /* Handle visual arriba del modal */
+      .modal::before {
+        content: '';
+        display: block;
+        width: 36px; height: 4px;
+        background: var(--border);
+        border-radius: 2px;
+        margin: 0 auto 18px;
+      }
+      .modal-title { font-size: 20px; margin-bottom: 18px; }
+
+      /* Forms en 1 columna */
+      .form-row { grid-template-columns: 1fr; gap: 0; }
+      .form-group { margin-bottom: 14px; }
+      .form-group input,
+      .form-group select { font-size: 16px; padding: 12px 14px; } /* 16px evita zoom en iOS */
+
+      .modal-btns { flex-direction: column; gap: 8px; }
+      .modal-btns .btn { width: 100%; padding: 14px; font-size: 11px; }
+
+      /* Login box */
+      .login-box { padding: 32px 24px; margin: 16px; }
+
+      /* Ficha cliente */
+      #modal-ficha .modal { max-height: 100vh; border-radius: 0; }
+
+      /* Inputs de busqueda full width */
+      input[type="text"],
+      input[type="date"] {
+        width: 100% !important;
+        font-size: 16px;
+      }
+
+      /* Stats del ficha */
+      #ficha-content > div:first-child {
+        grid-template-columns: 1fr 1fr !important;
+      }
+    }
+
+    /* Pantallas muy chicas */
+    @media (max-width: 380px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .stat-value { font-size: 28px; }
+      .page { padding: 64px 12px 20px; }
+    }
+
+    @media (max-width: 768px) {
+      #mobile-topbar { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOPBAR MOBILE -->
+<div id="mobile-topbar" style="display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--dark2);border-bottom:1px solid var(--border);z-index:100;align-items:center;padding:0 16px 0 64px;">
+  <span id="mobile-page-title" style="font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--gold-light);font-weight:300">Dashboard</span>
+</div>
+<!-- HAMBURGUESA (solo mobile) -->
+<button id="menu-toggle" onclick="toggleSidebar()">☰</button>
+<!-- Overlay oscuro al abrir el sidebar en mobile -->
+<div id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <img src="data:image/jpeg;base64,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" alt="Studio PL" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 16px;display:block;border:2px solid rgba(201,169,110,0.4)"/>
+    <h1>STUDIO PL</h1>
+    <p>Panel de administración</p>
+    <div id="login-error"></div>
+    <div class="form-group"><label>Contraseña</label><input type="password" id="admin-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+    <button class="btn-primary" onclick="adminLogin()">Ingresar</button>
+  </div>
+</div>
+
+<!-- APP -->
+<aside>
+  <div class="sidebar-logo" style="display:flex;align-items:center;gap:12px">
+    <img src="data:image/jpeg;base64,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" alt="Studio PL" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:1px solid rgba(201,169,110,0.3)"/>
+    <div>
+      <div class="name">STUDIO PL</div>
+      <div class="sub">Admin</div>
+    </div>
+  </div>
+  <nav>
+    <div class="nav-item active" onclick="irA('dashboard')"><span class="nav-icon">◈</span> Dashboard</div>
+    <div class="nav-item" onclick="irA('horarios')"><span class="nav-icon">◷</span> Horarios</div>
+    <div class="nav-item" onclick="irA('reservas')"><span class="nav-icon">◻</span> Reservas</div>
+    <div class="nav-item" onclick="irA('clientes')"><span class="nav-icon">◯</span> Clientes</div>
+    <div class="nav-item" onclick="irA('abonos')"><span class="nav-icon">◇</span> Abonos</div>
+    <div class="nav-item" onclick="irA('fijos')"><span class="nav-icon">📌</span> Horarios fijos</div>
+    <div class="nav-item" onclick="irA('config')"><span class="nav-icon">⚙</span> Configuración</div>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="btn-logout-admin" onclick="adminLogout()">Cerrar sesión</button>
+  </div>
+</aside>
+
+<main>
+  <!-- DASHBOARD -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <div><div class="page-title">Dashboard</div><div class="page-sub">Resumen del estudio</div></div>
+    </div>
+    <div class="stats-grid" id="stats-grid"><div class="spinner"></div></div>
+  </div>
+
+  <!-- HORARIOS -->
+  <div class="page" id="page-horarios">
+    <div class="page-header">
+      <div><div class="page-title">Horarios</div><div class="page-sub">Clases disponibles</div></div>
+      <button class="btn btn-gold" onclick="abrirModalHorario()">+ Nuevo horario</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Día</th><th>Hora</th><th>Instructor/a</th><th>Duración</th><th>Cupos</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="horarios-tbody"><tr><td colspan="7"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- RESERVAS -->
+  <div class="page" id="page-reservas">
+    <div class="page-header">
+      <div><div class="page-title">Reservas</div><div class="page-sub">Todas las reservas activas</div></div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <input type="date" id="filtro-fecha" style="background:var(--dark2);border:1px solid var(--border);color:var(--gold-light);padding:9px 14px;font-family:Montserrat,sans-serif;font-size:12px;outline:none" onchange="renderReservas()">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('filtro-fecha').value='';renderReservas()">Todas</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Fecha</th><th>Clase</th><th>Cliente</th><th>Email</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="reservas-tbody"><tr><td colspan="6"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CLIENTES -->
+  <div class="page" id="page-clientes">
+    <div class="page-header">
+      <div><div class="page-title">Clientes</div><div class="page-sub">Alumnas registradas</div></div>
+      <button class="btn btn-gold" onclick="abrirAltaCliente()">+ Nueva clienta</button>
+    </div>
+
+    <!-- BARRA DE FILTROS -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+      <input type="text" id="buscar-cliente" placeholder="Buscar nombre o email..." 
+        style="background:var(--dark2);border:1px solid var(--border);color:var(--gold-light);padding:9px 14px;font-family:Montserrat,sans-serif;font-size:12px;outline:none;flex:1;min-width:160px"
+        oninput="renderClientes()">
+      <select id="filtro-estado" onchange="renderClientes()"
+        style="background:var(--dark2);border:1px solid var(--border);color:var(--gold-light);padding:9px 12px;font-family:Montserrat,sans-serif;font-size:11px;outline:none;cursor:pointer">
+        <option value="">Todas</option>
+        <option value="activa">Solo activas</option>
+        <option value="inactiva">Solo inactivas</option>
+        <option value="vencida">Abono vencido</option>
+        <option value="sinabono">Sin abono</option>
+      </select>
+      <select id="filtro-abono" onchange="renderClientes()"
+        style="background:var(--dark2);border:1px solid var(--border);color:var(--gold-light);padding:9px 12px;font-family:Montserrat,sans-serif;font-size:11px;outline:none;cursor:pointer">
+        <option value="">Todos los abonos</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="limpiarFiltros()" style="white-space:nowrap">✕ Limpiar</button>
+      <span id="clientes-count" style="font-size:11px;color:var(--muted);white-space:nowrap"></span>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="cursor:pointer" onclick="toggleOrden()">Nombre <span id="orden-icon">↑</span></th>
+          <th>Abono</th>
+          <th>Vencimiento</th>
+          <th>Créditos</th>
+          <th>Estado</th>
+          <th>Acción</th>
+        </tr></thead>
+        <tbody id="clientes-tbody"><tr><td colspan="6"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- CONFIGURACION -->
+  <div class="page" id="page-config">
+    <div class="page-header">
+      <div><div class="page-title">Configuración</div><div class="page-sub">Reglas del studio</div></div>
+    </div>
+    <div style="max-width:520px">
+      <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:20px">Reservas</div>
+        <div class="form-group">
+          <label>Semanas de agenda visible</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="number" id="cfg-semanas-agenda" min="1" max="4" style="width:80px">
+            <span style="font-size:12px;color:var(--muted)">semanas hacia adelante</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Ej: 2 = las clientas ven esta semana y la próxima</div>
+        </div>
+        <div class="form-group">
+          <label>Cierre de reservas</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="number" id="cfg-min-reserva" min="0" max="1440" style="width:100px">
+            <span style="font-size:12px;color:var(--muted)">minutos antes de la clase</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Ej: 10 = no se puede reservar si faltan menos de 10 minutos</div>
+        </div>
+      </div>
+      <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:20px">Cancelaciones</div>
+        <div class="form-group">
+          <label>Tiempo mínimo para cancelar con devolución de crédito</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="number" id="cfg-min-cancelacion" min="0" max="10080" style="width:100px">
+            <span style="font-size:12px;color:var(--muted)">minutos antes de la clase</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">Ej: 600 = si cancela con menos de 10 horas, pierde el crédito</div>
+        </div>
+        <div style="background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);padding:10px 14px;font-size:11px;color:var(--muted);line-height:1.6">
+          Si la clienta cancela con más tiempo del mínimo → el crédito se devuelve<br>
+          Si cancela dentro del mínimo → el crédito se pierde
+        </div>
+      </div>
+      <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">Feriados y días cerrados</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Estos días no aparecerán como disponibles en la agenda de las clientas.</p>
+
+        <!-- Agregar nuevo día cerrado -->
+        <div style="display:grid;grid-template-columns:160px 1fr auto;gap:10px;align-items:end;margin-bottom:16px">
+          <div class="form-group" style="margin:0">
+            <label>Fecha</label>
+            <input type="date" id="dc-fecha" style="background:var(--dark3,#222);border:1px solid var(--border);color:var(--gold-light);padding:9px 12px;font-family:Montserrat,sans-serif;font-size:12px;outline:none;width:100%">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Motivo (opcional)</label>
+            <input type="text" id="dc-motivo" placeholder="Ej: Feriado nacional, Mantenimiento..." style="width:100%">
+          </div>
+          <button class="btn btn-gold" onclick="agregarDiaCerrado()" style="height:38px;white-space:nowrap">+ Agregar</button>
+        </div>
+        <div id="dc-msg" style="margin-bottom:10px"></div>
+
+        <!-- Lista de días cerrados -->
+        <div id="dc-lista" style="display:flex;flex-direction:column;gap:8px">
+          <div style="color:var(--muted);font-size:12px">Cargando...</div>
+        </div>
+      </div>
+
+      <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">Abonos vencidos</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Cancela todas las reservas futuras de clientas con abono vencido y les envía un email de aviso. Los cupos vuelven a estar disponibles.</p>
+        <button class="btn btn-danger" onclick="liberarVencidas()" id="btn-liberar">Liberar reservas de abonos vencidos</button>
+        <div id="liberar-msg" style="margin-top:12px"></div>
+      </div>
+      <div id="config-msg"></div>
+      <button class="btn btn-gold" onclick="guardarConfig()">Guardar configuración</button>
+    </div>
+  </div>
+
+  <!-- HORARIOS FIJOS -->
+  <div class="page" id="page-fijos">
+<div class="page-header">
+      <div><div class="page-title">Horarios fijos</div><div class="page-sub">Clientes con día y hora asignados permanentemente</div></div>
+      <button class="btn btn-gold" onclick="abrirModalFijo()">+ Asignar horario fijo</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Cliente</th><th>Día</th><th>Hora</th><th>Acción</th></tr></thead>
+        <tbody id="fijos-tbody"><tr><td colspan="4"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ABONOS -->
+  <div class="page" id="page-abonos">
+    <div class="page-header">
+      <div><div class="page-title">Abonos</div><div class="page-sub">Tipos de plan y créditos semanales</div></div>
+      <button class="btn btn-gold" onclick="abrirModalAbono()">+ Nuevo abono</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Nombre</th><th>Clases/semana</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead>
+        <tbody id="abonos-tbody"><tr><td colspan="5"><div class="spinner"></div></td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  </div>
+</main>
+<!-- MODAL HORARIO -->
+<div class="modal-overlay" id="modal-horario">
+  <div class="modal">
+    <h2 class="modal-title" id="modal-horario-titulo">Nuevo horario</h2>
+    <div id="modal-horario-msg"></div>
+    <input type="hidden" id="h-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Día</label>
+        <select id="h-dia">
+          <option>Lunes</option><option>Martes</option><option>Miércoles</option>
+          <option>Jueves</option><option>Viernes</option><option>Sábado</option><option>Domingo</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Hora</label><input type="time" id="h-hora"></div>
+    </div>
+    <div class="form-group"><label>Instructor/a</label><input type="text" id="h-instructor" placeholder="Nombre del instructor/a"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Duración (min)</label><input type="number" id="h-duracion" value="55" min="10" max="120"></div>
+      <div class="form-group"><label>Cupos totales</label><input type="number" id="h-cupos" value="10" min="1" max="50"></div>
+    </div>
+    <div class="form-group"><label>Descripción <span style="font-style:italic;color:var(--muted)">(opcional)</span></label><input type="text" id="h-desc" placeholder="Ej: Nivel intermedio, mat pilates"></div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="h-activo"><option value="true">Activo</option><option value="false">Inactivo</option></select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-gold" onclick="guardarHorario()">Guardar</button>
+      <button class="btn btn-outline" onclick="cerrarModal('modal-horario')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL EDITAR CLIENTE -->
+<div class="modal-overlay" id="modal-cliente">
+  <div class="modal" style="max-width:520px">
+    <h2 class="modal-title" id="modal-cliente-titulo">Editar cliente</h2>
+    <div id="modal-cliente-msg"></div>
+    <input type="hidden" id="c-id">
+    <div class="form-row">
+      <div class="form-group"><label>Nombre</label><input type="text" id="c-nombre"></div>
+      <div class="form-group"><label>DNI</label><input type="text" id="c-dni" placeholder="Sin puntos"></div>
+    </div>
+    <div class="form-group"><label>Email</label><input type="email" id="c-email" placeholder="correo@ejemplo.com"></div>
+    <div class="form-group"><label>Teléfono</label><input type="text" id="c-telefono"></div>
+    <div class="form-group">
+      <label>Abono / Plan</label>
+      <select id="c-abono"><option value="">Sin abono</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Fecha de pago</label>
+        <input type="date" id="c-fecha-pago">
+      </div>
+      <div class="form-group">
+        <label>Fecha de vencimiento</label>
+        <input type="date" id="c-fecha-vencimiento">
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">O elegí duración:</div>
+        <div style="display:flex;gap:6px;margin-top:4px">
+          <button class="btn btn-outline btn-sm" onclick="setVencimiento(15)" type="button">15 días</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencimiento(30)" type="button">1 mes</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencimiento(90)" type="button">3 meses</button>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Estado de cuenta</label>
+      <select id="c-activo">
+        <option value="true">Activa ✓</option>
+        <option value="false">Inactiva — no puede reservar</option>
+      </select>
+    </div>
+    <div style="background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);padding:10px 14px;font-size:10px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+      Al cambiar el abono se resetean los créditos usados de la semana.
+    </div>
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-danger btn-sm" onclick="confirmarEliminarCliente()" style="align-self:center">Eliminar cliente</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" onclick="cerrarModal('modal-cliente')">Cancelar</button>
+        <button class="btn btn-gold" onclick="guardarCliente()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ABONO -->
+<div class="modal-overlay" id="modal-abono">
+  <div class="modal">
+    <h2 class="modal-title" id="modal-abono-titulo">Nuevo abono</h2>
+    <div id="modal-abono-msg"></div>
+    <input type="hidden" id="a-id">
+    <div class="form-group"><label>Nombre del plan</label><input type="text" id="a-nombre" placeholder="Ej: 2x semana"></div>
+    <div class="form-group">
+      <label>Clases por semana</label>
+      <input type="number" id="a-clases" value="2" min="1" max="99" placeholder="999 = ilimitado">
+      <div style="font-size:10px;color:var(--muted);margin-top:4px">Usá 999 para plan ilimitado</div>
+    </div>
+    <div class="form-group"><label>Descripción <span style="font-style:italic;color:var(--muted)">(opcional)</span></label><input type="text" id="a-desc" placeholder="Descripción del plan"></div>
+    <div class="form-group">
+      <label>Estado</label>
+      <select id="a-activo"><option value="true">Activo</option><option value="false">Inactivo</option></select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-abono')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarAbono()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FICHA CLIENTE -->
+<div class="modal-overlay" id="modal-ficha">
+  <div class="modal" style="max-width:620px;max-height:88vh;overflow-y:auto;padding:0">
+    <div style="background:var(--dark);padding:24px 32px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1">
+      <div>
+        <div style="font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--gold-light)" id="ficha-nombre">Cargando...</div>
+        <div style="font-size:10px;letter-spacing:2px;color:var(--muted);margin-top:2px">FICHA DE INSCRIPCIÓN</div>
+      </div>
+      <button onclick="cerrarModal('modal-ficha')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    </div>
+    <div id="ficha-content" style="padding:28px 32px">
+      <div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HORARIO FIJO -->
+<div class="modal-overlay" id="modal-fijo">
+  <div class="modal">
+    <h2 class="modal-title">Asignar horario fijo</h2>
+    <div id="modal-fijo-msg"></div>
+    <div class="form-group">
+      <label>Cliente</label>
+      <select id="fijo-cliente"><option value="">Seleccioná una clienta...</option></select>
+    </div>
+    <div class="form-group">
+      <label>Horario</label>
+      <select id="fijo-horario"><option value="">Seleccioná un horario...</option></select>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      La clienta quedará asignada permanentemente a este horario. Podrá reservar sin necesidad de anotarse cada semana (la reserva automática se configura por separado con recordatoriosDiarios).
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-fijo')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarFijo()">Asignar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_URL = 'https://script.google.com/macros/s/AKfycbzLk5eCuPB2D8IP4ivYhX9sXarj8zVBJS3mrZpeN3DPBTnMkttdu5A93-aAJFOqYQUV/exec';
+let adminToken = sessionStorage.getItem('spl_admin') || null;
+let todosHorarios = [], todasReservas = [], todosClientes = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
+});
+
+async function api(action, params={}) {
+  const url = new URL(API_URL);
+  url.searchParams.set('action', action);
+  if (adminToken) params.adminToken = adminToken;
+  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function adminLogin() {
+  const pass = document.getElementById('admin-pass').value;
+  const res = await api('adminLogin', {password: pass});
+  if (res.ok) {
+    adminToken = res.token;
+    sessionStorage.setItem('spl_admin', adminToken);
+    document.getElementById('login-screen').style.display='none';
+    cargarTodo();
+  } else {
+    document.getElementById('login-error').innerHTML='<div class="msg error">Contraseña incorrecta</div>';
+  }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('spl_admin');
+  adminToken = null;
+  document.getElementById('login-screen').style.display='flex';
+}
+
+
+function setVencimiento(dias) {
+  const fpago = document.getElementById('c-fecha-pago').value;
+  const base = fpago ? new Date(fpago+'T00:00:00') : new Date();
+  base.setDate(base.getDate() + dias);
+  document.getElementById('c-fecha-vencimiento').value = base.toISOString().split('T')[0];
+}
+function setVencPago(dias) {
+  const fpago = document.getElementById('pago-fpago').value;
+  const base = fpago ? new Date(fpago+'T00:00:00') : new Date();
+  base.setDate(base.getDate() + dias);
+  document.getElementById('pago-fvenc').value = base.toISOString().split('T')[0];
+}
+function toggleSidebar() {
+  document.querySelector('aside').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+// Formatea cualquier valor de fecha a DD/MM/YYYY, ignora la parte de hora
+function fmtHoraUI(h) {
+  if (!h) return '';
+  // Asegura formato HH:MM (agrega cero si es "8:00" -> "08:00")
+  var partes = String(h).split(':');
+  return partes[0].padStart(2,'0') + ':' + (partes[1]||'00');
+}
+
+function fmtFechaUI(val) {
+  if (!val) return '—';
+  var s = String(val).trim();
+  // ISO con T (ej: "1990-02-21T00:00:00.000Z") - tomar solo la parte de fecha
+  if (s.indexOf('T') !== -1) s = s.split('T')[0];
+  // Formato yyyy-MM-dd -> DD/MM/YYYY
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    var parts = s.split('-');
+    return parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+  // Si ya viene como fecha de JS (Date object serializado)
+  try {
+    var d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return String(d.getDate()).padStart(2,'0') + '/' +
+             String(d.getMonth()+1).padStart(2,'0') + '/' +
+             d.getFullYear();
+    }
+  } catch(e) {}
+  return s || '—';
+}
+
+function irA(seccion) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+seccion).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (seccion==='abonos')   cargarAbonos();
+  if (seccion==='clientes') cargarClientes();
+  if (seccion==='fijos')    cargarFijos();
+  if (seccion==='config')   cargarConfig();
+  const titles = { dashboard:'Dashboard', horarios:'Horarios', reservas:'Reservas', clientes:'Clientes', abonos:'Abonos', fijos:'Horarios fijos', config:'Configuración' };
+  const el = document.getElementById('mobile-page-title');
+  if (el) el.textContent = titles[seccion] || seccion;
+  document.querySelector('aside').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+async function cargarTodo() {
+  cargarStats();
+  cargarHorarios();
+  cargarReservas();
+  cargarClientes();
+  cargarAbonos();
+}
+
+async function cargarStats() {
+  const res = await api('adminGetStats');
+  if (!res.ok) return;
+  const s = res.stats;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-value">${s.totalClientes}</div><div class="stat-label">Clientes activas</div></div>
+    <div class="stat-card"><div class="stat-value">${s.reservasActivas}</div><div class="stat-label">Reservas activas</div></div>
+    <div class="stat-card"><div class="stat-value">${s.reservasHoy}</div><div class="stat-label">Reservas hoy</div></div>
+    <div class="stat-card"><div class="stat-value">${s.enEspera}</div><div class="stat-label">En lista espera</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:#c9a96e">${s.clientesInact||0}</div><div class="stat-label">Clientes inactivas</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:${(s.abonosVencidos||0)>0?'#e08070':'var(--gold)'}">${s.abonosVencidos||0}</div><div class="stat-label">Abonos vencidos</div></div>
+  `;
+}
+
+async function cargarHorarios() {
+  const res = await api('adminGetHorarios');
+  if (!res.ok) return;
+  todosHorarios = res.horarios;
+  renderHorariosTabla();
+}
+
+function renderHorariosTabla() {
+  const tb = document.getElementById('horarios-tbody');
+  if (!todosHorarios.length) { tb.innerHTML='<tr class="empty-row"><td colspan="7">No hay horarios configurados</td></tr>'; return; }
+  const orden = {Lunes:1,Martes:2,'Miércoles':3,Jueves:4,Viernes:5,'Sábado':6,Domingo:7};
+  const sorted = [...todosHorarios].sort((a,b)=>((orden[a.dia]||9)-(orden[b.dia]||9))||a.hora.localeCompare(b.hora));
+  tb.innerHTML = sorted.map(h=>`
+    <tr>
+      <td>${h.dia}</td>
+      <td style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300">${fmtHoraUI(h.hora)}</td>
+      <td>${h.instructor}</td>
+      <td>${h.duracion} min</td>
+      <td>${h.cupos_totales}</td>
+      <td><span class="badge ${h.activo===true||h.activo==='TRUE'?'activo':'inactivo'}">${h.activo===true||h.activo==='TRUE'?'Activo':'Inactivo'}</span></td>
+      <td style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="editarHorario('${h.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="desactivarHorario('${h.id}')">Desactivar</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarHorarioFisico('${h.id}','${h.dia} ${h.hora}')">Eliminar</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function cargarReservas() {
+  const res = await api('adminGetReservas');
+  if (!res.ok) return;
+  todasReservas = res.reservas;
+  renderReservas();
+}
+
+// Normaliza cualquier fecha a yyyy-MM-dd (maneja Date objects, ISO, "Mon Mar 30 2026", etc.)
+function normFechaFE(v) {
+  if (!v) return '';
+  var s = String(v).trim();
+  // ya es yyyy-MM-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // ISO con T
+  if (s.indexOf('T') !== -1) return s.substring(0, 10);
+  // "Mon Mar 30 2026..." o cualquier otro formato - parsear con Date
+  try {
+    var d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      var y = d.getFullYear();
+      var m = String(d.getMonth()+1).padStart(2,'0');
+      var day = String(d.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    }
+  } catch(e) {}
+  return s.substring(0,10);
+}
+
+function renderReservas() {
+  const tb = document.getElementById('reservas-tbody');
+  const filtroFecha = document.getElementById('filtro-fecha')?.value;
+  const DIAS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  let data = todasReservas.filter(r=>r.estado==='activa');
+  // Normalizar todas las fechas primero
+  data = data.map(r => Object.assign({}, r, { fecha_clase: normFechaFE(r.fecha_clase) }));
+  if (filtroFecha) data = data.filter(r=>r.fecha_clase===filtroFecha);
+  data.sort((a,b)=>a.fecha_clase.localeCompare(b.fecha_clase));
+  if (!data.length) { tb.innerHTML='<tr class="empty-row"><td colspan="6">No hay reservas</td></tr>'; return; }
+  tb.innerHTML = data.map(r=>{
+    const d = new Date(r.fecha_clase+'T00:00:00');
+    const fecha = `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
+    const h = r.horario;
+    const c = r.cliente;
+    return `<tr>
+      <td>${fecha}</td>
+      <td>${h?`${fmtHoraUI(h.hora)} · ${h.dia}`:r.horario_id}</td>
+      <td>${c?c.nombre:r.cliente_id}</td>
+      <td style="color:var(--muted);font-size:12px">${c?c.email:''}</td>
+      <td><span class="badge activo">Activa</span></td>
+      <td><button class="btn btn-danger btn-sm" onclick="cancelarReservaAdmin('${r.id}')">Cancelar</button></td>
+    </tr>`;
+  }).join('');
+}
+
+async function cancelarReservaAdmin(reservaId) {
+  if (!confirm('¿Cancelar esta reserva? Se notificará a la clienta.')) return;
+  const res = await api('adminCancelarReserva', {reservaId});
+  if (res.ok) { cargarReservas(); cargarStats(); }
+  else alert(res.error);
+}
+
+async function cargarClientes() {
+  const res = await api('adminGetClientes');
+  if (!res.ok) return;
+  todosClientes = res.clientes;
+  poblarFiltroAbonos();
+  renderClientes();
+}
+
+let ordenAsc = true;
+
+function toggleOrden() {
+  ordenAsc = !ordenAsc;
+  document.getElementById('orden-icon').textContent = ordenAsc ? '↑' : '↓';
+  renderClientes();
+}
+
+function limpiarFiltros() {
+  document.getElementById('buscar-cliente').value = '';
+  document.getElementById('filtro-estado').value = '';
+  document.getElementById('filtro-abono').value = '';
+  renderClientes();
+}
+
+function poblarFiltroAbonos() {
+  const sel = document.getElementById('filtro-abono');
+  const actual = sel.value;
+  const abonos = [...new Set(todosClientes.map(c=>c.tipo_abono).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todos los abonos</option>' +
+    abonos.map(a=>`<option value="${a}" ${actual===a?'selected':''}>${a}</option>`).join('');
+}
+
+function renderClientes() {
+  const buscar      = (document.getElementById('buscar-cliente')?.value || '').toLowerCase();
+  const filtroEst   = document.getElementById('filtro-estado')?.value || '';
+  const filtroAbono = document.getElementById('filtro-abono')?.value || '';
+  const tb = document.getElementById('clientes-tbody');
+  const hoy = new Date().toISOString().split('T')[0];
+
+  let data = [...todosClientes];
+
+  // Filtro búsqueda
+  if (buscar) data = data.filter(c =>
+    (c.nombre||'').toLowerCase().includes(buscar) ||
+    (c.email||'').toLowerCase().includes(buscar) ||
+    (c.dni||'').includes(buscar)
+  );
+
+  // Filtro estado
+  if (filtroEst === 'activa')   data = data.filter(c => c.activo===true||c.activo==='TRUE');
+  if (filtroEst === 'inactiva') data = data.filter(c => c.activo===false||c.activo==='FALSE');
+  if (filtroEst === 'vencida')  data = data.filter(c => c.abonoVencido);
+  if (filtroEst === 'sinabono') data = data.filter(c => !c.tipo_abono);
+
+  // Filtro abono
+  if (filtroAbono) data = data.filter(c => c.tipo_abono === filtroAbono);
+
+  // Ordenar alfabéticamente
+  data.sort((a,b) => {
+    const na = (a.nombre||'').toLowerCase(), nb = (b.nombre||'').toLowerCase();
+    return ordenAsc ? na.localeCompare(nb,'es') : nb.localeCompare(na,'es');
+  });
+
+  // Contador
+  const counter = document.getElementById('clientes-count');
+  if (counter) counter.textContent = `${data.length} clienta${data.length!==1?'s':''}`;
+
+  if (!data.length) {
+    tb.innerHTML='<tr class="empty-row"><td colspan="6">No hay clientes con esos filtros</td></tr>';
+    return;
+  }
+
+  tb.innerHTML = data.map(c=>{
+    const activo = c.activo===true||c.activo==='TRUE';
+    const cred   = c.creditosRestantes==='Infinito'
+      ? '<span style="font-size:15px">∞</span>'
+      : (c.creditosRestantes ?? '—');
+    // WhatsApp link
+    const telLimpio = (c.telefono||'').toString().replace(/\D/g,'');
+    const telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54' + telLimpio) : '';
+
+    // Vencimiento: destacado y con días restantes
+    let vencCell = '<span style="color:var(--muted);font-size:11px">—</span>';
+    if (c.fechaVencimiento) {
+      const fv   = c.fechaVencimiento; // ya viene como yyyy-MM-dd del backend
+      const dias = Math.round((new Date(fv) - new Date(hoy)) / 86400000);
+      if (c.abonoVencido) {
+        vencCell = `<div><span class="badge inactivo">VENCIDO</span>
+          <div style="font-size:10px;color:#e08070;margin-top:2px">${fmtFechaUI(fv)}</div></div>`;
+      } else if (dias <= 7) {
+        vencCell = `<div><span style="color:#c9a96e;font-weight:500;font-size:12px">${fmtFechaUI(fv)}</span>
+          <div style="font-size:10px;color:#c9a96e">vence en ${dias}d</div></div>`;
+      } else {
+        vencCell = `<div style="font-size:12px;color:var(--gold-light)">${fmtFechaUI(fv)}
+          <div style="font-size:10px;color:var(--muted)">${dias}d restantes</div></div>`;
+      }
+    }
+
+    return `<tr style="${!activo?'opacity:.6':''}">
+      <td>
+        <div style="font-weight:500">${c.nombre||'—'}</div>
+        <div style="font-size:10px;color:var(--muted)">${c.email||'—'}</div>
+        ${c.dni?`<div style="font-size:10px;color:var(--muted)">DNI ${c.dni}</div>`:''}
+      </td>
+      <td>${c.tipo_abono
+        ? `<span class="badge activo">${c.tipo_abono}</span>`
+        : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+      <td>${vencCell}</td>
+      <td style="text-align:center;font-size:15px;color:var(--gold)">${cred}</td>
+      <td><span class="badge ${activo?'activo':'inactivo'}">${activo?'Activa':'Inactiva'}</span></td>
+      <td style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap">
+        <button class="btn btn-gold btn-sm" onclick="verFicha('${c.id}')" title="Ver ficha">Ficha</button>
+        ${telWA ? `<a href="https://wa.me/${telWA}" target="_blank" title="WhatsApp" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;background:rgba(37,211,102,0.12);border:1px solid rgba(37,211,102,0.3);border-radius:4px;text-decoration:none;flex-shrink:0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#25d166"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        </a>` : `<div style="width:30px"></div>`}
+        <button class="btn btn-outline btn-sm" onclick="abrirPago('${c.id}')" title="Registrar pago">Pago</button>
+        <button onclick="eliminarCliente('${c.id}','${(c.nombre||'').replace(/'/g,"\\'")}\')" title="Eliminar clienta" style="background:none;border:none;color:#c06060;font-size:16px;cursor:pointer;padding:4px 6px;border-radius:4px;line-height:1;flex-shrink:0" onmouseover="this.style.background='rgba(192,96,96,0.1)'" onmouseout="this.style.background='none'">🗑</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── FICHA CLIENTE ──────────────────────────────────────────
+async function verFicha(clienteId) {
+  document.getElementById('ficha-nombre').textContent = 'Cargando...';
+  document.getElementById('ficha-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div></div>';
+  abrirModal('modal-ficha');
+  const res = await api('adminGetFicha', { clienteId });
+  if (!res.ok) { document.getElementById('ficha-content').innerHTML = `<p style="color:var(--error)">${res.error}</p>`; return; }
+  const c = res.cliente, p = res.parq, reservas = res.reservas || [];
+  const activo = c.activo===true||c.activo==='TRUE';
+  document.getElementById('ficha-nombre').textContent = c.nombre;
+  const yn = v => v==='SI'||v==='Sí'||v==='Si' ? `<span style="color:#e08070;font-weight:500">SI</span>` : `<span style="color:#8dc8a0">NO</span>`;
+  const row = (label, val) => val ? `<div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted);min-width:200px;font-size:11px;padding-top:2px">${label}</span><span>${val}</span></div>` : '';
+  const horasFijas = (c.horariosFijos||[]).map(id => { const h = todosHorarios.find(h=>h.id===id); return h ? `${h.dia} ${h.hora}` : id; }).join(', ');
+
+  // WhatsApp link builder
+  const telLimpio = (c.telefono||'').toString().replace(/\D/g,'');
+  const telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54' + telLimpio) : '';
+
+  // Datos para los mensajes
+  const nombre1 = c.nombre.split(' ')[0];
+  const vencStr = c.fechaVencimiento ? fmtFechaUI(c.fechaVencimiento) : null;
+
+  // Próxima reserva
+  let proxReservaStr = null;
+  if (reservas && reservas.length) {
+    const DIAS_ES = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    const pr = reservas[0]; // ya vienen ordenadas por fecha
+    const fc = pr.fecha_clase ? String(pr.fecha_clase).substring(0,10) : null;
+    if (fc) {
+      const d = new Date(fc + 'T00:00:00');
+      const horaRaw = pr.horario?.hora ? String(pr.horario.hora) : '';
+      const hora = horaRaw ? horaRaw.split(':')[0].padStart(2,'0') + ':' + (horaRaw.split(':')[1]||'00') : '';
+      proxReservaStr = `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}${hora ? ' a las ' + hora + ' hs' : ''}`;
+    }
+  }
+
+  const mensajesRA = [
+    {
+      label: '👋 Saludo',
+      texto: `Hola ${nombre1}! Te escribimos desde Studio PL. ¿Cómo estás?`
+    },
+    {
+      label: '💳 Renovar abono',
+      texto: vencStr
+        ? `Hola ${nombre1}! Te avisamos que tu abono en Studio PL vence el ${vencStr}. Para seguir reservando tus clases, renovalo antes de esa fecha. Cualquier consulta estamos acá 👋`
+        : `Hola ${nombre1}! Te avisamos que tu abono en Studio PL está próximo a vencer. ¿Querés renovarlo? Cualquier consulta estamos acá 👋`
+    },
+    {
+      label: '📅 Recordatorio clase',
+      texto: proxReservaStr
+        ? `Hola ${nombre1}! Te recordamos que tenés clase en Studio PL el ${proxReservaStr}. ¡Te esperamos! ✨`
+        : `Hola ${nombre1}! Te recordamos que tenés clase próximamente en Studio PL. ¡Te esperamos! ✨`
+    },
+    {
+      label: '❌ Reservas canceladas',
+      texto: vencStr
+        ? `Hola ${nombre1}! Tu abono venció el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos ✨`
+        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono venció. Cuando quieras renovar, avisanos y te ayudamos ✨`
+    },
+    {
+      label: '🎉 Bienvenida',
+      texto: `Bienvenida al Studio PL, ${nombre1}! 🎉 Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos acá.`
+    },
+    {
+      label: '📝 Completar datos',
+      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. ¡Gracias! ✅`
+    },
+  ];
+
+  const waButtons = telWA ? mensajesRA.map(m => {
+    const url = `https://wa.me/${telWA}?text=${encodeURIComponent(m.texto)}`;
+    return `<a href="${url}" target="_blank" style="display:flex;align-items:center;gap:8px;padding:9px 14px;background:rgba(37,211,102,0.08);border:1px solid rgba(37,211,102,0.25);color:#25d166;font-size:11px;letter-spacing:1px;text-decoration:none;transition:all .2s;white-space:nowrap" onmouseover="this.style.background='rgba(37,211,102,0.18)'" onmouseout="this.style.background='rgba(37,211,102,0.08)'">${m.label}</a>`;
+  }).join('') : `<div style="font-size:12px;color:var(--muted);padding:10px">Sin teléfono cargado — editá la clienta para agregar uno</div>`;
+
+  const waSection = `
+    <div style="margin-bottom:20px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#25d166;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="#25d166"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        WhatsApp rápido
+      </div>
+      ${telWA ? `<div style="font-size:11px;color:var(--muted);margin-bottom:8px">📱 +${telWA}</div>` : ''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${waButtons}</div>
+    </div>`;
+
+  document.getElementById('ficha-content').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
+      <div class="stat-card"><div class="stat-value" style="font-size:28px">${c.totalReservas||0}</div><div class="stat-label">Reservas activas</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:28px;color:${activo?'var(--gold)':'var(--muted)'}">${activo?'Activa':'Inactiva'}</div><div class="stat-label">Estado</div></div>
+    </div>
+    <div style="margin-bottom:20px">
+      ${row('Email', c.email)} ${row('Telefono', c.telefono||'—')} ${row('DNI', c.dni||'—')}
+      ${row('Abono', c.tipo_abono||'—')} ${row('Creditos semana', String(c.creditosRestantes))}
+      ${row('Fecha pago', c.fecha_pago||'—')}
+      ${row('Vencimiento', c.fechaVencimiento ? (c.abonoVencido ? '<span style="color:#e08070">'+fmtFechaUI(c.fechaVencimiento)+' (VENCIDO)</span>' : fmtFechaUI(c.fechaVencimiento)) : '—')}
+      ${horasFijas ? row('Horarios fijos', horasFijas) : ''}
+    </div>
+    ${waSection}
+    ${p ? `<div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:16px 0 10px">PAR-Q</div><div>${row('Edad inscripcion',p.edad)}${row('F. nacimiento',fmtFechaUI(p.fecha_nacimiento))}${row('Patologias',p.patologias||'Ninguna')}${row('Prob. cardiaco',yn(p.prob_cardiaco))}${row('Dolor pecho ejercicio',yn(p.dolor_pecho_ejercicio))}${row('Dolor pecho reposo',yn(p.dolor_pecho_reposo))}${row('Mareos',yn(p.mareos))}${row('Prob. oseo',yn(p.problema_oseo))}${p.problema_oseo_cual?row('Cual prob. oseo',p.problema_oseo_cual):''}${row('Medicacion cardiaca',yn(p.medicacion_cardiaca))}${p.otra_razon?row('Otra razon',p.otra_razon):''}${row('Lesiones 6 meses',p.lesiones||'—')}</div>` : `<div style="padding:16px;background:var(--dark2);border:1px solid var(--border);font-size:12px;color:var(--muted);text-align:center;margin-top:12px">Sin PAR-Q digital (registro previo a la app)</div>`}
+    <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-gold btn-sm" onclick="cerrarModal('modal-ficha');editarCliente('${c.id}')">Editar</button>
+      <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha');abrirHorariosFijos('${c.id}')">Horarios fijos</button>
+      <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha')">Cerrar</button>
+    </div>`;
+}
+
+// ── CLIENTES CRUD ──────────────────────────────────────────
+let todosAbonos = [];
+
+async function editarCliente(id) {
+  const c = todosClientes.find(c=>c.id===id);
+  if (!c) return;
+  if (!todosAbonos.length) { const res = await api('adminGetAbonos'); if (res.ok) todosAbonos = res.abonos; }
+  document.getElementById('c-id').value        = c.id;
+  document.getElementById('c-nombre').value    = c.nombre||'';
+  document.getElementById('c-email').value     = c.email||'';
+  document.getElementById('c-telefono').value  = c.telefono||'';
+  document.getElementById('c-dni').value       = c.dni||'';
+  document.getElementById('c-activo').value    = String(c.activo===true||c.activo==='TRUE');
+  document.getElementById('c-fecha-pago').value     = c.fecha_pago||c.fechaPago||'';
+  document.getElementById('c-fecha-vencimiento').value     = c.fechaVencimiento||'';
+  const sel = document.getElementById('c-abono');
+  sel.innerHTML = '<option value="">Sin abono</option>' +
+    todosAbonos.filter(a=>a.activo===true||a.activo==='TRUE').map(a=>
+      `<option value="${a.nombre}" ${c.tipo_abono===a.nombre?'selected':''}>${a.nombre} (${parseInt(a.clases_semana)>=999?'∞':a.clases_semana}/sem)</option>`
+    ).join('');
+  document.getElementById('modal-cliente-titulo').textContent = `Editar — ${c.nombre}`;
+  document.getElementById('modal-cliente-msg').innerHTML='';
+  abrirModal('modal-cliente');
+}
+
+async function guardarCliente() {
+  const id = document.getElementById('c-id').value;
+  const params = {
+    id,
+    nombre:             document.getElementById('c-nombre').value,
+    email:              document.getElementById('c-email').value,
+    telefono:           document.getElementById('c-telefono').value,
+    dni:                document.getElementById('c-dni').value,
+    activo:             document.getElementById('c-activo').value,
+    tipo_abono:         document.getElementById('c-abono').value,
+    fecha_pago:         document.getElementById('c-fecha-pago').value,
+    fecha_vencimiento:  document.getElementById('c-fecha-vencimiento').value,
+  };
+  const res = await api('adminEditarCliente', params);
+  if (res.ok) { cerrarModal('modal-cliente'); cargarClientes(); cargarStats(); }
+  else showModalMsg('modal-cliente-msg', res.error, 'error');
+}
+
+
+async function confirmarEliminarCliente() {
+  const id = document.getElementById('c-id').value;
+  const nombre = document.getElementById('c-nombre').value;
+  if (!confirm('¿ELIMINAR a ' + nombre + '? Esta acción no se puede deshacer y borrará todos sus datos.')) return;
+  const res = await api('adminEliminarCliente', {id, confirmar:'SI'});
+  if (res.ok) { cerrarModal('modal-cliente'); cargarClientes(); cargarStats(); }
+  else showModalMsg('modal-cliente-msg', res.error, 'error');
+}
+async function eliminarCliente(id, nombre) {
+  if (!confirm('¿Eliminar a ' + nombre + '? Esta acción no se puede deshacer.')) return;
+  const res = await api('adminEliminarCliente', {id});
+  if (res.ok) { cargarClientes(); cargarStats(); }
+  else alert(res.error);
+}
+
+// ── HORARIOS DESACTIVAR / ELIMINAR ─────────────────────────
+async function desactivarHorario(id) {
+  if (!confirm('¿Desactivar este horario? No aparecerá en la web pero se conserva en la planilla.')) return;
+  const res = await api('adminEliminarHorario', {id, borrarFila: false});
+  if (res.ok) cargarHorarios();
+  else alert(res.error);
+}
+
+async function eliminarHorarioFisico(id, nombre) {
+  if (!confirm('¿ELIMINAR PERMANENTEMENTE el horario ' + nombre + '?\nEsta acción no se puede deshacer.')) return;
+  const res = await api('adminEliminarHorario', {id, borrarFila: true});
+  if (res.ok) cargarHorarios();
+  else alert(res.error);
+}
+
+// ── PAGO / VENCIMIENTO ─────────────────────────────────────
+let pagando_clienteId = null;
+
+async function abrirPago(clienteId) {
+  pagando_clienteId = clienteId;
+  const c = todosClientes.find(c=>c.id===clienteId);
+  if (!todosAbonos.length) { const res = await api('adminGetAbonos'); if (res.ok) todosAbonos = res.abonos; }
+  document.getElementById('pago-titulo').textContent = 'Registrar pago — ' + (c?.nombre||'');
+  document.getElementById('pago-msg').innerHTML = '';
+  // Fecha hoy
+  const hoy = new Date().toISOString().split('T')[0];
+  document.getElementById('pago-fpago').value = hoy;
+  // Calcular vencimiento 1 mes por defecto
+  const venc = new Date(); venc.setMonth(venc.getMonth()+1);
+  document.getElementById('pago-fvenc').value = venc.toISOString().split('T')[0];
+  // Abono actual seleccionado
+  const sel = document.getElementById('pago-abono');
+  sel.innerHTML = '<option value="">Mantener actual</option>' +
+    todosAbonos.filter(a=>a.activo===true||a.activo==='TRUE').map(a=>
+      `<option value="${a.nombre}" ${c?.tipo_abono===a.nombre?'selected':''}>${a.nombre}</option>`
+    ).join('');
+  abrirModal('modal-pago');
+}
+
+async function guardarPago() {
+  const params = {
+    clienteId:        pagando_clienteId,
+    fechaPago:        document.getElementById('pago-fpago').value,
+    fechaVencimiento: document.getElementById('pago-fvenc').value,
+    tipoAbono:        document.getElementById('pago-abono').value || undefined,
+  };
+  if (!params.fechaVencimiento) return showModalMsg('pago-msg','La fecha de vencimiento es requerida','error');
+  const res = await api('adminEditarCliente', { id: pagando_clienteId, fecha_pago: params.fechaPago, fecha_vencimiento: params.fechaVencimiento, tipo_abono: params.tipoAbono });
+  if (res.ok) { cerrarModal('modal-pago'); cargarClientes(); cargarStats(); showModalMsg('pago-msg','',''); }
+  else showModalMsg('pago-msg', res.error, 'error');
+}
+
+// ── HORARIOS FIJOS ─────────────────────────────────────────
+let horariosClienteId = null;
+
+async function abrirHorariosFijos(clienteId) {
+  horariosClienteId = clienteId;
+  const c = todosClientes.find(c=>c.id===clienteId);
+  document.getElementById('hf-titulo').textContent = 'Horarios fijos — ' + (c?.nombre||'');
+  document.getElementById('hf-msg').innerHTML = '';
+  if (!todosHorarios.length) await cargarHorarios();
+  // Obtener fijos actuales
+  const res = await api('adminGetHorariosFijos');
+  const fijos = res.ok ? (res.horariosFijos||[]) : [];
+  // Renderizar lista de checkboxes
+  const orden = {Lunes:1,Martes:2,'Miércoles':3,Jueves:4,Viernes:5,'Sábado':6,Domingo:7};
+  const activos = todosHorarios.filter(h=>h.activo===true||h.activo==='TRUE').sort((a,b)=>(orden[a.dia]||9)-(orden[b.dia]||9)||a.hora.localeCompare(b.hora));
+  document.getElementById('hf-lista').innerHTML = activos.map(h=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+      <input type="checkbox" value="${h.id}" ${fijos.includes(h.id)?'checked':''} style="accent-color:var(--gold);width:16px;height:16px">
+      <span style="font-size:13px">${h.dia} <strong>${h.hora}</strong> · ${h.instructor} · ${h.duracion}min</span>
+    </label>`).join('');
+  abrirModal('modal-horarios-fijos');
+}
+
+async function guardarHorariosFijos() {
+  showModalMsg('hf-msg','Guardando...','');
+  const checks = document.querySelectorAll('#hf-lista input[type=checkbox]:checked');
+  const horariosFijos = [...checks].map(c=>c.value);
+  let ok = true;
+  for (const horarioId of horariosFijos) {
+    const res = await api('adminSetHorarioFijo', { clienteId: horariosClienteId, horarioId });
+    if (!res.ok && res.error !== 'Ya tiene ese horario fijo') { ok = false; showModalMsg('hf-msg', res.error, 'error'); break; }
+  }
+  if (ok) { cerrarModal('modal-horarios-fijos'); cargarFijos(); }
+}
+
+// ── ABONOS CRUD ────────────────────────────────────────────
+async function cargarAbonos() {
+  const res = await api('adminGetAbonos');
+  if (!res.ok) return;
+  todosAbonos = res.abonos;
+  renderAbonos();
+}
+
+function renderAbonos() {
+  const tb = document.getElementById('abonos-tbody');
+  if (!todosAbonos.length) { tb.innerHTML='<tr class="empty-row"><td colspan="5">No hay abonos configurados</td></tr>'; return; }
+  tb.innerHTML = todosAbonos.map(a=>{
+    const activo = a.activo===true||a.activo==='TRUE';
+    const clases = parseInt(a.clases_semana)>=999 ? '<span style="font-size:18px">∞</span> (ilimitado)' : `${a.clases_semana} clase${parseInt(a.clases_semana)!==1?'s':''}/semana`;
+    return `<tr>
+      <td style="font-weight:500">${a.nombre}</td>
+      <td style="color:var(--gold)">${clases}</td>
+      <td style="color:var(--muted);font-size:12px">${a.descripcion||'—'}</td>
+      <td><span class="badge ${activo?'activo':'inactivo'}">${activo?'Activo':'Inactivo'}</span></td>
+      <td style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="editarAbono('${a.id}')">Editar</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminarAbono('${a.id}')">Eliminar</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalAbono() {
+  document.getElementById('a-id').value='';
+  document.getElementById('a-nombre').value='';
+  document.getElementById('a-clases').value='2';
+  document.getElementById('a-desc').value='';
+  document.getElementById('a-activo').value='true';
+  document.getElementById('modal-abono-titulo').textContent='Nuevo abono';
+  document.getElementById('modal-abono-msg').innerHTML='';
+  abrirModal('modal-abono');
+}
+
+function editarAbono(id) {
+  const a = todosAbonos.find(a=>a.id===id);
+  if (!a) return;
+  document.getElementById('a-id').value=a.id;
+  document.getElementById('a-nombre').value=a.nombre;
+  document.getElementById('a-clases').value=a.clases_semana;
+  document.getElementById('a-desc').value=a.descripcion||'';
+  document.getElementById('a-activo').value=String(a.activo===true||a.activo==='TRUE');
+  document.getElementById('modal-abono-titulo').textContent='Editar abono';
+  document.getElementById('modal-abono-msg').innerHTML='';
+  abrirModal('modal-abono');
+}
+
+async function guardarAbono() {
+  const id = document.getElementById('a-id').value;
+  const params = {
+    nombre: document.getElementById('a-nombre').value,
+    clases_semana: document.getElementById('a-clases').value,
+    descripcion: document.getElementById('a-desc').value,
+    activo: document.getElementById('a-activo').value,
+  };
+  if (!params.nombre) { showModalMsg('modal-abono-msg','El nombre es requerido','error'); return; }
+  const action = id ? 'adminEditarAbono' : 'adminCrearAbono';
+  if (id) params.id = id;
+  const res = await api(action, params);
+  if (res.ok) { cerrarModal('modal-abono'); cargarAbonos(); }
+  else showModalMsg('modal-abono-msg', res.error, 'error');
+}
+
+async function eliminarAbono(id) {
+  if (!confirm('¿Eliminar este abono? Los clientes con este plan quedarán sin abono asignado.')) return;
+  const res = await api('adminEliminarAbono', {id});
+  if (res.ok) cargarAbonos();
+  else alert(res.error);
+}
+
+// HORARIOS CRUD
+function abrirModalHorario() {
+  document.getElementById('h-id').value='';
+  document.getElementById('h-dia').value='Lunes';
+  document.getElementById('h-hora').value='08:00';
+  document.getElementById('h-instructor').value='';
+  document.getElementById('h-duracion').value='55';
+  document.getElementById('h-cupos').value='10';
+  document.getElementById('h-desc').value='';
+  document.getElementById('h-activo').value='true';
+  document.getElementById('modal-horario-titulo').textContent='Nuevo horario';
+  document.getElementById('modal-horario-msg').innerHTML='';
+  abrirModal('modal-horario');
+}
+
+function editarHorario(id) {
+  const h = todosHorarios.find(h=>h.id===id);
+  if (!h) return;
+  document.getElementById('h-id').value=h.id;
+  document.getElementById('h-dia').value=h.dia;
+  document.getElementById('h-hora').value=h.hora;
+  document.getElementById('h-instructor').value=h.instructor;
+  document.getElementById('h-duracion').value=h.duracion;
+  document.getElementById('h-cupos').value=h.cupos_totales;
+  document.getElementById('h-desc').value=h.descripcion||'';
+  document.getElementById('h-activo').value=String(h.activo===true||h.activo==='TRUE');
+  document.getElementById('modal-horario-titulo').textContent='Editar horario';
+  document.getElementById('modal-horario-msg').innerHTML='';
+  abrirModal('modal-horario');
+}
+
+async function guardarHorario() {
+  const id = document.getElementById('h-id').value;
+  const params = {
+    dia: document.getElementById('h-dia').value,
+    hora: document.getElementById('h-hora').value,
+    instructor: document.getElementById('h-instructor').value,
+    duracion: document.getElementById('h-duracion').value,
+    cupos_totales: document.getElementById('h-cupos').value,
+    descripcion: document.getElementById('h-desc').value,
+    activo: document.getElementById('h-activo').value
+  };
+  if (!params.hora||!params.instructor) { showModalMsg('modal-horario-msg','Hora e instructor son requeridos','error'); return; }
+
+  const action = id ? 'adminEditarHorario' : 'adminCrearHorario';
+  if (id) params.id = id;
+  const res = await api(action, params);
+  if (res.ok) { cerrarModal('modal-horario'); cargarHorarios(); }
+  else showModalMsg('modal-horario-msg', res.error, 'error');
+}
+
+async function eliminarHorario(id) {
+  if (!confirm('¿Desactivar este horario? No se eliminará, pero no aparecerá en la web.')) return;
+  const res = await api('adminEliminarHorario', {id});
+  if (res.ok) cargarHorarios();
+  else alert(res.error);
+}
+
+// ── ALTA RÁPIDA DE CLIENTE DESDE ADMIN ─────────────────────
+async function abrirAltaCliente() {
+  // Limpiar campos
+  ['alta-nombre','alta-dni','alta-email','alta-tel','alta-fpago','alta-fvenc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('alta-fnac') && (document.getElementById('alta-fnac').value = '');
+  document.getElementById('alta-msg').innerHTML = '';
+  // Fecha pago por defecto hoy
+  document.getElementById('alta-fpago').value = new Date().toISOString().split('T')[0];
+  // Poblar abonos
+  if (!todosAbonos.length) { const r = await api('adminGetAbonos'); if (r.ok) todosAbonos = r.abonos; }
+  const sel = document.getElementById('alta-abono');
+  sel.innerHTML = '<option value="">Sin abono</option>' +
+    todosAbonos.filter(a=>a.activo===true||a.activo==='TRUE').map(a=>
+      `<option value="${a.nombre}">${a.nombre} (${parseInt(a.clases_semana)>=999?'Infinito':a.clases_semana}/sem)</option>`
+    ).join('');
+  abrirModal('modal-alta-cliente');
+}
+
+function setVencAltaDesde(dias) {
+  const fpago = document.getElementById('alta-fpago').value;
+  const base = fpago ? new Date(fpago+'T00:00:00') : new Date();
+  base.setDate(base.getDate() + dias);
+  document.getElementById('alta-fvenc').value = base.toISOString().split('T')[0];
+}
+
+async function guardarAltaCliente() {
+  const nombre = document.getElementById('alta-nombre').value.trim();
+  const email  = document.getElementById('alta-email').value.trim();
+  if (!nombre) return showModalMsg('alta-msg','El nombre es requerido','error');
+  if (!email)  return showModalMsg('alta-msg','El email es requerido','error');
+
+  showModalMsg('alta-msg','Registrando...','');
+
+  // 1. Crear el cliente via registrarCliente (envía email de bienvenida)
+  const reg = await api('registrarCliente', {
+    nombre,
+    email,
+    telefono: document.getElementById('alta-tel').value.trim(),
+    dni:      document.getElementById('alta-dni').value.trim(),
+  });
+
+  if (!reg.ok) return showModalMsg('alta-msg', reg.error, 'error');
+
+  // 2. Si tiene abono/fechas, actualizar via adminEditarCliente
+  const abono = document.getElementById('alta-abono').value;
+  const fpago = document.getElementById('alta-fpago').value;
+  const fvenc = document.getElementById('alta-fvenc').value;
+  const fnac  = document.getElementById('alta-fnac').value;
+
+  if (abono || fpago || fvenc) {
+    await api('adminEditarCliente', {
+      id:               reg.cliente.id,
+      tipo_abono:       abono || undefined,
+      fecha_pago:       fpago || undefined,
+      fecha_vencimiento: fvenc || undefined,
+    });
+  }
+
+  showModalMsg('alta-msg','¡Clienta dada de alta! Email de bienvenida enviado.','success');
+  setTimeout(() => { cerrarModal('modal-alta-cliente'); cargarClientes(); cargarStats(); }, 1800);
+}
+
+// ── CONFIGURACION ──────────────────────────────────────────
+async function cargarConfig() {
+  const res = await api('adminGetConfig');
+  if (!res.ok) return;
+  document.getElementById('cfg-semanas-agenda').value = res.config.semanasAgenda || 2;
+  document.getElementById('cfg-min-reserva').value = res.config.minutosReserva;
+  document.getElementById('cfg-min-cancelacion').value = res.config.minutosCancelacion;
+  renderDiasCerrados(res.config.diasCerrados || []);
+}
+
+async function guardarConfig() {
+  const semanasAgenda = document.getElementById('cfg-semanas-agenda').value;
+  const minutosReserva = document.getElementById('cfg-min-reserva').value;
+  const minutosCancelacion = document.getElementById('cfg-min-cancelacion').value;
+  const res = await api('setConfig', { semanasAgenda, minutosReserva, minutosCancelacion });
+  const msg = document.getElementById('config-msg');
+  if (res.ok) {
+    msg.innerHTML = '<div class="msg success" style="margin-top:12px">✓ Configuración guardada</div>';
+    setTimeout(() => msg.innerHTML = '', 3000);
+  } else {
+    msg.innerHTML = `<div class="msg error" style="margin-top:12px">${res.error}</div>`;
+  }
+}
+
+const DIAS_SEMANA = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const MESES_CORTOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+function renderDiasCerrados(lista) {
+  const el = document.getElementById('dc-lista');
+  if (!lista.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">No hay días cerrados configurados</div>';
+    return;
+  }
+  el.innerHTML = lista.map(d => {
+    const fecha = new Date(d.fecha + 'T00:00:00');
+    const label = `${DIAS_SEMANA[fecha.getDay()]} ${fecha.getDate()} ${MESES_CORTOS[fecha.getMonth()]} ${fecha.getFullYear()}`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;background:rgba(201,169,110,0.06);border:1px solid var(--border);padding:10px 14px">
+      <div>
+        <span style="font-size:13px;color:var(--gold-light)">${label}</span>
+        ${d.motivo ? `<span style="font-size:11px;color:var(--muted);margin-left:10px">${d.motivo}</span>` : ''}
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="quitarDiaCerrado('${d.fecha}')">✕ Quitar</button>
+    </div>`;
+  }).join('');
+}
+
+async function agregarDiaCerrado() {
+  const fecha = document.getElementById('dc-fecha').value;
+  const motivo = document.getElementById('dc-motivo').value.trim();
+  if (!fecha) return showMsg('dc-msg', 'Seleccioná una fecha', 'error');
+  const res = await api('adminAgregarDiaCerrado', { fecha, motivo });
+  if (res.ok) {
+    showMsg('dc-msg', '✓ Día cerrado agregado', 'success');
+    document.getElementById('dc-fecha').value = '';
+    document.getElementById('dc-motivo').value = '';
+    renderDiasCerrados(res.diasCerrados);
+    setTimeout(() => document.getElementById('dc-msg').innerHTML = '', 2000);
+  } else {
+    showMsg('dc-msg', res.error, 'error');
+  }
+}
+
+async function quitarDiaCerrado(fecha) {
+  const res = await api('adminQuitarDiaCerrado', { fecha });
+  if (res.ok) renderDiasCerrados(res.diasCerrados);
+  else alert(res.error);
+}
+
+async function liberarVencidas() {
+  if (!confirm('¿Cancelar todas las reservas futuras de clientas con abono vencido? Se les enviará un email de aviso.')) return;
+  const btn = document.getElementById('btn-liberar');
+  btn.disabled = true; btn.textContent = 'Procesando...';
+  const res = await api('liberarReservasVencidas');
+  const msg = document.getElementById('liberar-msg');
+  if (res.ok) {
+    msg.innerHTML = `<div class="msg success">✓ ${res.reservasCanceladas} reserva${res.reservasCanceladas!==1?'s':''} cancelada${res.reservasCanceladas!==1?'s':''} de ${res.clientesAfectados} clienta${res.clientesAfectados!==1?'s':''}</div>`;
+    if (res.reservasCanceladas > 0) { cargarReservas(); cargarStats(); }
+  } else {
+    msg.innerHTML = `<div class="msg error">${res.error}</div>`;
+  }
+  btn.disabled = false; btn.textContent = 'Liberar reservas de abonos vencidos';
+}
+
+function abrirModal(id) { document.getElementById(id).classList.add('open'); }
+function cerrarModal(id) { document.getElementById(id).classList.remove('open'); }
+function showModalMsg(id,txt,tipo) { document.getElementById(id).innerHTML=`<div class="msg ${tipo}">${txt}</div>`; }
+
+// ── HORARIOS FIJOS CRUD ────────────────────────────────────
+async function cargarFijos() {
+  const res = await api('adminGetHorariosFijos');
+  if (!res.ok) return;
+  const tb = document.getElementById('fijos-tbody');
+  const fijos = res.fijos || [];
+  if (!fijos.length) { tb.innerHTML='<tr class="empty-row"><td colspan="4">No hay horarios fijos asignados</td></tr>'; return; }
+  tb.innerHTML = fijos.map(f=>`<tr>
+    <td style="font-weight:500">${f.clienteNombre}</td>
+    <td>${f.horarioDia}</td>
+    <td style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300">${f.horarioHora}</td>
+    <td><button class="btn btn-danger btn-sm" onclick="quitarFijo('${f.id}')">Quitar</button></td>
+  </tr>`).join('');
+}
+
+async function abrirModalFijo() {
+  if (!todosClientes.length) await cargarClientes();
+  if (!todosHorarios.length) await cargarHorarios();
+  const selC = document.getElementById('fijo-cliente');
+  const selH = document.getElementById('fijo-horario');
+  selC.innerHTML = '<option value="">Seleccioná una clienta...</option>' +
+    todosClientes.filter(c=>c.activo===true||c.activo==='TRUE').map(c=>`<option value="${c.id}">${c.nombre}</option>`).join('');
+  const orden = {Lunes:1,Martes:2,'Miércoles':3,Jueves:4,Viernes:5,'Sábado':6,Domingo:7};
+  const sorted = [...todosHorarios].filter(h=>h.activo===true||h.activo==='TRUE').sort((a,b)=>(orden[a.dia]||9)-(orden[b.dia]||9)||a.hora.localeCompare(b.hora));
+  selH.innerHTML = '<option value="">Seleccioná un horario...</option>' +
+    sorted.map(h=>`<option value="${h.id}">${h.dia} ${h.hora} · ${h.instructor}</option>`).join('');
+  document.getElementById('modal-fijo-msg').innerHTML='';
+  abrirModal('modal-fijo');
+}
+
+async function guardarFijo() {
+  const clienteId = document.getElementById('fijo-cliente').value;
+  const horarioId = document.getElementById('fijo-horario').value;
+  if (!clienteId||!horarioId) { showModalMsg('modal-fijo-msg','Seleccioná clienta y horario','error'); return; }
+  const res = await api('adminSetHorarioFijo', {clienteId, horarioId});
+  if (res.ok) { cerrarModal('modal-fijo'); cargarFijos(); }
+  else showModalMsg('modal-fijo-msg', res.error, 'error');
+}
+
+async function quitarFijo(id) {
+  if (!confirm('¿Quitar este horario fijo?')) return;
+  const res = await api('adminEliminarHorarioFijo', {id});
+  if (res.ok) cargarFijos();
+  else alert(res.error);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+</script>
+<!-- MODAL PAGO -->
+<div class="modal-overlay" id="modal-pago">
+  <div class="modal">
+    <h2 class="modal-title" id="pago-titulo">Registrar pago</h2>
+    <div id="pago-msg"></div>
+    <div class="form-group">
+      <label>Plan / Abono</label>
+      <select id="pago-abono"><option value="">Mantener actual</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Fecha de pago</label><input type="date" id="pago-fpago"></div>
+      <div class="form-group">
+        <label>Vencimiento</label>
+        <input type="date" id="pago-fvenc">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(15)" type="button">15d</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarPago()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL HORARIOS FIJOS DE CLIENTE -->
+<div class="modal-overlay" id="modal-horarios-fijos">
+  <div class="modal">
+    <h2 class="modal-title" id="hf-titulo">Horarios fijos</h2>
+    <div id="hf-msg"></div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Marcá los horarios permanentes de esta clienta</div>
+    <div id="hf-lista"></div>
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-horarios-fijos')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarHorariosFijos()">Guardar</button>
+    </div>
+  </div>
+</div>
+<!-- MODAL ALTA RÁPIDA DE CLIENTE (desde el admin) -->
+<div class="modal-overlay" id="modal-alta-cliente">
+  <div class="modal" style="max-width:540px;max-height:92vh;overflow-y:auto">
+    <h2 class="modal-title">Nueva clienta</h2>
+    <div id="alta-msg"></div>
+
+    <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:14px">Datos personales</p>
+    <div class="form-row">
+      <div class="form-group"><label>Nombre y apellido *</label><input type="text" id="alta-nombre" placeholder="Nombre completo"></div>
+      <div class="form-group"><label>DNI</label><input type="text" id="alta-dni" placeholder="Sin puntos"></div>
+    </div>
+    <div class="form-group"><label>Email *</label><input type="email" id="alta-email" placeholder="correo@ejemplo.com"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Teléfono</label><input type="tel" id="alta-tel" placeholder="+54 11 ..."></div>
+      <div class="form-group"><label>Fecha de nacimiento</label><input type="date" id="alta-fnac"></div>
+    </div>
+
+    <p style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin:16px 0 12px">Abono (opcional)</p>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Plan</label>
+        <select id="alta-abono"><option value="">Sin abono</option></select>
+      </div>
+      <div class="form-group">
+        <label>Fecha de pago</label>
+        <input type="date" id="alta-fpago">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Fecha de vencimiento</label>
+      <input type="date" id="alta-fvenc">
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(15)" type="button">15 días</button>
+        <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(30)" type="button">1 mes</button>
+        <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(90)" type="button">3 meses</button>
+      </div>
+    </div>
+
+    <div style="background:rgba(201,169,110,0.08);border:1px solid rgba(201,169,110,0.2);padding:10px 14px;font-size:10px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+      El cuestionario PAR-Q se puede completar después desde la app web. La clienta recibirá un email de bienvenida.
+    </div>
+
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="cerrarModal('modal-alta-cliente')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarAltaCliente()">Dar de alta</button>
+    </div>
+  </div>
+</div>
+
+<!-- BOTÓN AYUDA ADMIN -->
+<button onclick="abrirModal('modal-ayuda-admin')" style="position:fixed;bottom:24px;right:24px;z-index:900;width:44px;height:44px;border-radius:50%;background:var(--dark2);border:1px solid var(--gold);color:var(--gold);font-size:18px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.4);transition:all .2s;display:flex;align-items:center;justify-content:center;font-family:Georgia,serif" title="Ayuda">?</button>
+
+<!-- MODAL AYUDA ADMIN -->
+<div class="modal-overlay" id="modal-ayuda-admin">
+  <div class="modal" style="max-width:560px;max-height:88vh;overflow-y:auto;background:var(--dark2);color:var(--gold-light)">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--dark2);z-index:1;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:16px">
+      <div>
+        <h2 class="modal-title" style="color:var(--gold-light)">Guía del administrador</h2>
+        <p style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px">STUDIO PL — PANEL DE GESTIÓN</p>
+      </div>
+      <button onclick="cerrarModal('modal-ayuda-admin')" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:22px;font-size:12px;line-height:1.8">
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Dashboard</div>
+        <p style="color:var(--muted)">Resumen del studio: clientes activas, reservas de hoy, lista de espera y abonos vencidos. Se actualiza en tiempo real.</p>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Horarios</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li><strong style="color:var(--gold-light)">+ Nuevo horario</strong> — agregar día, hora, instructor y cupos</li>
+          <li><strong style="color:var(--gold-light)">Editar</strong> — modificar cualquier dato del horario</li>
+          <li><strong style="color:var(--gold-light)">Desactivar</strong> — oculta el horario sin eliminarlo</li>
+          <li><strong style="color:var(--gold-light)">Eliminar</strong> — borra el horario permanentemente</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Reservas</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li>Listado de todas las reservas activas con fecha, clase y clienta</li>
+          <li>Filtrá por fecha con el selector de la derecha</li>
+          <li><strong style="color:var(--gold-light)">Cancelar</strong> — cancela la reserva y notifica a la clienta por email</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Clientes</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li><strong style="color:var(--gold-light)">+ Nueva clienta</strong> — alta rápida desde el admin (sin PAR-Q)</li>
+          <li><strong style="color:var(--gold-light)">Ficha</strong> — ver datos, reservas futuras, PAR-Q y WhatsApp rápido</li>
+          <li><strong style="color:var(--gold-light)">WhatsApp</strong> — abre chat directo con mensajes predefinidos</li>
+          <li><strong style="color:var(--gold-light)">Pago</strong> — registrar fecha de pago y vencimiento del abono</li>
+          <li><strong style="color:var(--gold-light)">🗑</strong> — eliminar clienta (acción irreversible)</li>
+          <li>Dentro de la ficha: <em>Editar</em> nombre, email, teléfono, DNI y abono</li>
+          <li>Filtrá por estado (activa/inactiva), abono o buscá por nombre/email</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Abonos</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li>Gestioná los tipos de abono: nombre, clases por semana</li>
+          <li>Los abonos activos aparecen al editar una clienta</li>
+          <li>El abono <em>Ilimitado</em> no descuenta créditos semanales</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Horarios fijos</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li>Asignale a una clienta un horario fijo permanente</li>
+          <li>Se muestra con 📌 en su app para que sepa que es su lugar</li>
+          <li>Para crear las reservas automáticas de los fijos, corré <strong style="color:var(--gold-light)">procesarHorariosFijos</strong> desde Apps Script</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Configuración</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li><strong style="color:var(--gold-light)">Semanas de agenda</strong> — cuántas semanas hacia adelante ven las clientas</li>
+          <li><strong style="color:var(--gold-light)">Cierre de reservas</strong> — minutos antes de la clase en que se cierra</li>
+          <li><strong style="color:var(--gold-light)">Cancelaciones</strong> — minutos mínimos para cancelar con devolución de crédito</li>
+          <li><strong style="color:var(--gold-light)">Feriados y días cerrados</strong> — agregar fechas que no aparezcan en la agenda</li>
+          <li><strong style="color:var(--gold-light)">Liberar reservas vencidas</strong> — cancela reservas de abonos vencidos y notifica</li>
+        </ul>
+      </div>
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Mensajes WhatsApp predefinidos</div>
+        <ul style="padding-left:16px;color:var(--muted)">
+          <li>👋 <strong style="color:var(--gold-light)">Saludo</strong> — mensaje genérico de contacto</li>
+          <li>💳 <strong style="color:var(--gold-light)">Renovar abono</strong> — incluye la fecha de vencimiento</li>
+          <li>📅 <strong style="color:var(--gold-light)">Recordatorio clase</strong> — incluye día, fecha y hora de la próxima reserva</li>
+          <li>❌ <strong style="color:var(--gold-light)">Reservas canceladas</strong> — avisa que se liberaron sus cupos</li>
+          <li>🎉 <strong style="color:var(--gold-light)">Bienvenida</strong> — para clientas nuevas</li>
+          <li>📝 <strong style="color:var(--gold-light)">Completar datos</strong> — para las que tienen email pendiente</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>
