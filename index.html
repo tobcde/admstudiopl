@@ -5,12 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Studio PL &#8212; Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Studio PL Admin">
-  <meta name="theme-color" content="#1a1a1a">
-  <link rel="manifest" href="manifest.json">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -66,6 +60,7 @@
     .badge { display: inline-block; padding: 3px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-radius: 1px; }
     .badge.activo { background: rgba(90,138,106,.2); color: #8dc8a0; border: 1px solid rgba(90,138,106,.3); }
     .badge.inactivo { background: rgba(192,57,43,.1); color: #e08070; border: 1px solid rgba(192,57,43,.2); }
+    .badge.vencida { background: rgba(201,169,110,0.15); color: #c9a96e; border: 1px solid rgba(201,169,110,0.3); }
     .badge.cancelada { background: rgba(192,57,43,.1); color: #e08070; border: 1px solid rgba(192,57,43,.2); }
 
     /* BOTONES */
@@ -303,6 +298,9 @@
     @media (max-width: 768px) {
       #mobile-topbar { display: flex !important; }
     }
+
+    .filtro-estado-btn { background:var(--dark2); border:1px solid var(--border); color:var(--muted); padding:7px 14px; font-size:11px; letter-spacing:1px; cursor:pointer; font-family:Montserrat,sans-serif; transition:all .2s; }
+    .filtro-estado-btn.active, .filtro-estado-btn:hover { background:var(--gold); border-color:var(--gold); color:var(--dark); }
   </style>
 </head>
 <body>
@@ -378,9 +376,14 @@
   <div class="page" id="page-reservas">
     <div class="page-header">
       <div><div class="page-title">Reservas</div><div class="page-sub">Todas las reservas activas</div></div>
-      <div style="display:flex;gap:10px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm filtro-estado-btn active" data-estado="activa" onclick="setFiltroEstado('activa',this)">Activas</button>
+          <button class="btn btn-sm filtro-estado-btn" data-estado="vencida" onclick="setFiltroEstado('vencida',this)">Vencidas</button>
+          <button class="btn btn-sm filtro-estado-btn" data-estado="cancelada" onclick="setFiltroEstado('cancelada',this)">Canceladas</button>
+          <button class="btn btn-sm filtro-estado-btn" data-estado="todas" onclick="setFiltroEstado('todas',this)">Todas</button>
+        </div>
         <input type="date" id="filtro-fecha" style="background:var(--dark2);border:1px solid var(--border);color:var(--gold-light);padding:9px 14px;font-family:Montserrat,sans-serif;font-size:12px;outline:none" onchange="renderReservas()">
-        <button class="btn btn-outline btn-sm" onclick="document.getElementById('filtro-fecha').value='';renderReservas()">Todas</button>
       </div>
     </div>
     <div class="table-wrap">
@@ -691,6 +694,7 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbwu_JRpCVFgF8GQN660EwvO5fG-cK05R2dT-EZKRi6t6Fh81Ki64Jwt01cAmrnTpskw/exec';
 let adminToken = sessionStorage.getItem('spl_admin') || null;
 let todosHorarios = [], todasReservas = [], todosClientes = [];
+let filtroEstadoReservas = 'activa';
 
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
@@ -867,29 +871,57 @@ function normFechaFE(v) {
   return s.substring(0,10);
 }
 
+function setFiltroEstado(estado, btn) {
+  filtroEstadoReservas = estado;
+  document.querySelectorAll('.filtro-estado-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderReservas();
+}
+
 function renderReservas() {
   const tb = document.getElementById('reservas-tbody');
   const filtroFecha = document.getElementById('filtro-fecha')?.value;
   const DIAS = ['Domingo','Lunes','Martes','Miercoles','Jueves','Viernes','Sabado'];
   const MESES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-  let data = todasReservas.filter(r=>r.estado==='activa');
-  // Normalizar todas las fechas primero
-  data = data.map(r => Object.assign({}, r, { fecha_clase: normFechaFE(r.fecha_clase) }));
-  if (filtroFecha) data = data.filter(r=>r.fecha_clase===filtroFecha);
-  data.sort((a,b)=>a.fecha_clase.localeCompare(b.fecha_clase));
+  var hoyStr = new Date().toLocaleDateString('sv');
+
+  // Normalizar fechas y calcular estado real (activa vencida o cancelada)
+  let data = todasReservas.map(r => {
+    var fc = normFechaFE(r.fecha_clase);
+    var estadoReal = r.estado;
+    if (r.estado === 'activa' && fc < hoyStr) estadoReal = 'vencida';
+    return Object.assign({}, r, { fecha_clase: fc, estadoReal: estadoReal });
+  });
+
+  // Filtro por estado
+  var estadoFiltro = (typeof filtroEstadoReservas !== 'undefined') ? filtroEstadoReservas : 'activa';
+  if (estadoFiltro !== 'todas') {
+    data = data.filter(r => r.estadoReal === estadoFiltro);
+  }
+  // Filtro por fecha
+  if (filtroFecha) data = data.filter(r => r.fecha_clase === filtroFecha);
+  data.sort((a,b) => a.fecha_clase.localeCompare(b.fecha_clase));
+
   if (!data.length) { tb.innerHTML='<tr class="empty-row"><td colspan="6">No hay reservas</td></tr>'; return; }
-  tb.innerHTML = data.map(r=>{
-    const d = new Date(r.fecha_clase+'T00:00:00');
+  tb.innerHTML = data.map(r => {
+    const d = new Date(r.fecha_clase + 'T00:00:00');
     const fecha = `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
     const h = r.horario;
     const c = r.cliente;
+    var badgeCls, badgeTxt;
+    if (r.estadoReal === 'vencida')        { badgeCls='vencida';   badgeTxt='Vencida'; }
+    else if (r.estadoReal === 'cancelada')  { badgeCls='cancelado'; badgeTxt='Cancelada'; }
+    else                                    { badgeCls='activo';    badgeTxt='Activa'; }
+    var accionBtn = (r.estadoReal === 'activa')
+      ? `<button class="btn btn-danger btn-sm" onclick="cancelarReservaAdmin('${r.id}')">Cancelar</button>`
+      : '<span style="color:var(--muted);font-size:11px">-</span>';
     return `<tr>
       <td>${fecha}</td>
       <td>${h?`${fmtHoraUI(h.hora)} &#183; ${h.dia}`:r.horario_id}</td>
       <td>${c?c.nombre:r.cliente_id}</td>
       <td style="color:var(--muted);font-size:12px">${c?c.email:''}</td>
-      <td><span class="badge activo">Activa</span></td>
-      <td><button class="btn btn-danger btn-sm" onclick="cancelarReservaAdmin('${r.id}')">Cancelar</button></td>
+      <td><span class="badge ${badgeCls}">${badgeTxt}</span></td>
+      <td>${accionBtn}</td>
     </tr>`;
   }).join('');
 }
@@ -1792,19 +1824,22 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
         </ul>
       </div>
 
+
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:10px">Instalar el panel en tu celular</div>
+        <ul style="padding-left:18px;font-size:13px;color:var(--text);line-height:2">
+          <li><strong>iPhone (Safari):</strong> abre la p&#225;gina, toc&#225; el bot&#243;n compartir &#9650; y luego <em>Agregar a pantalla de inicio</em></li>
+          <li><strong>Android (Chrome):</strong> abre la p&#225;gina, toc&#225; el men&#250; &#8942; y luego <em>Agregar a pantalla de inicio</em> o <em>Instalar app</em></li>
+          <li>Qued&#225; como &#237;cono negro con el logo del studio en tu home</li>
+          <li>No requiere Play Store ni App Store &#8212; es gratuito</li>
+        </ul>
+      </div>
+
     </div>
   </div>
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.1</div>
-
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('sw.js').catch(function(){});
-  });
-}
-</script>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.2</div>
 </body>
 </html>
