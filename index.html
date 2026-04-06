@@ -793,6 +793,10 @@ async function abrirPago(clienteId) {
   _pagoClienteId = clienteId;
   var c = todosClientes.find(function(x){ return x.id === clienteId; });
   if (!c) return;
+  // Si todosAbonos no cargo todavia, esperarlo
+  if (!todosAbonos || !todosAbonos.length) {
+    await cargarAbonos();
+  }
   document.getElementById('modal-pago-clienteNombre').textContent = c.nombre;
   // Fecha hoy por defecto
   var hoy = new Date().toLocaleDateString('sv');
@@ -808,7 +812,7 @@ async function abrirPago(clienteId) {
     return '<option value="' + a.nombre + '"' + sel + '>' + a.nombre + '</option>';
   }).join('');
   if (!select.options.length) {
-    select.innerHTML = '<option value="">Sin planes cargados</option>';
+    select.innerHTML = '<option value="">Sin planes cargados en el sistema</option>';
   }
   document.getElementById('pago-monto').value = '';
   document.getElementById('pago-tipo').value = 'efectivo';
@@ -843,7 +847,6 @@ async function guardarPago() {
     fechaDesde:  fechaDesde,
     fechaHasta:  fechaHasta,
     nota:        tipoPago + (nota ? ' - ' + nota : ''),
-    adminToken:  adminToken
   });
 
   if (res.ok) {
@@ -2083,6 +2086,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.4</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.5</div>
 </body>
 </html>
