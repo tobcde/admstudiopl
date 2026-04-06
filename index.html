@@ -770,7 +770,7 @@ async function loginBioAdmin() {
       timeout: 60000
     }});
     if (!cred) return;
-    var storedToken = sessionStorage.getItem('spl_bio_admin_token');
+    var storedToken = sessionStorage.getItem('spl_bio_admin_token') || localStorage.getItem('spl_bio_admin_token');
     if (storedToken) {
       adminToken = storedToken;
       sessionStorage.setItem('spl_admin', adminToken);
@@ -807,6 +807,7 @@ async function adminLogin() {
     adminToken = res.token;
     sessionStorage.setItem('spl_admin', adminToken);
     sessionStorage.setItem('spl_bio_admin_token', adminToken);
+    localStorage.setItem('spl_bio_admin_token', adminToken);
     document.getElementById('login-screen').style.display='none';
     cargarTodo();
     if (bioAdminDisponible() && !localStorage.getItem('spl_bio_admin_id')) {
@@ -1163,16 +1164,23 @@ async function verFicha(clienteId) {
   const nombre1 = c.nombre.split(' ')[0];
   const vencStr = c.fechaVencimiento ? fmtFechaUI(c.fechaVencimiento) : null;
 
-  // Proxima reserva
+  // Proxima reserva - solo clases que aun no pasaron
   let proxReservaStr = null;
   if (reservas && reservas.length) {
     const DIAS_ES = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
     const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const pr = reservas[0]; // ya vienen ordenadas por fecha
-    const fc = pr.fecha_clase ? String(pr.fecha_clase).substring(0,10) : null;
-    if (fc) {
+    const ahoraMs = new Date().getTime();
+    const reservasFuturas = reservas.filter(function(r) {
+      const fc2 = r.fecha_clase ? String(r.fecha_clase).substring(0,10) : null;
+      if (!fc2) return false;
+      const horaRaw2 = r.horario && r.horario.hora ? String(r.horario.hora) : '23:59';
+      return new Date(fc2 + 'T' + horaRaw2 + ':00').getTime() > ahoraMs;
+    });
+    if (reservasFuturas.length) {
+      const pr = reservasFuturas[0];
+      const fc = String(pr.fecha_clase).substring(0,10);
       const d = new Date(fc + 'T00:00:00');
-      const horaRaw = pr.horario?.hora ? String(pr.horario.hora) : '';
+      const horaRaw = pr.horario && pr.horario.hora ? String(pr.horario.hora) : '';
       const hora = horaRaw ? horaRaw.split(':')[0].padStart(2,'0') + ':' + (horaRaw.split(':')[1]||'00') : '';
       proxReservaStr = `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}${hora ? ' a las ' + hora + ' hs' : ''}`;
     }
@@ -1927,6 +1935,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.0</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.2</div>
 </body>
 </html>
