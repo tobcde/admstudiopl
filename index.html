@@ -327,7 +327,7 @@
     .cliente-card-venc { font-size:10px; color:var(--muted); }
     .cliente-card-venc.pronto { color:#c9a96e; }
     .cliente-card-venc.vencido { color:#e08070; }
-    .cliente-card-acciones { display:flex; gap:8px; margin-top:4px; }
+    .cliente-card-acciones { display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
     .badge.nueva { background:rgba(150,80,200,0.2); color:#c08de8; border:1px solid rgba(150,80,200,0.4); }
     .btn-bio { width:100%; background:none; border:1px solid var(--gold); color:var(--gold-light);
       padding:13px; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer;
@@ -335,6 +335,10 @@
       justify-content:center; gap:8px; margin-top:10px; }
     .btn-bio:hover { background:var(--gold); color:var(--dark); }
     @media(max-width: 768px) { main { min-height: calc(100vh - 56px); } }
+    .pago-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+    .pago-row:last-child { border-bottom:none; }
+    .pago-monto { font-weight:600; color:var(--gold); }
+    .pago-tipo { color:var(--muted); font-size:11px; }
   </style>
 </head>
 <body>
@@ -567,6 +571,48 @@
     </div>
   </div>
 </main>
+
+<!-- MODAL PAGO -->
+<div class="modal-overlay" id="modal-pago">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-title">Registrar pago</div>
+    <div id="modal-pago-clienteNombre" style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:1px;text-transform:uppercase"></div>
+    <div class="form-group">
+      <label>Fecha del pago</label>
+      <input type="date" id="pago-fecha">
+    </div>
+    <div class="form-group">
+      <label>Plan pagado</label>
+      <select id="pago-plan"></select>
+    </div>
+    <div class="form-group">
+      <label>Monto ($)</label>
+      <input type="number" id="pago-monto" placeholder="0" min="0" step="100">
+    </div>
+    <div class="form-group">
+      <label>Tipo de pago</label>
+      <select id="pago-tipo">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="debito">D&#233;bito</option>
+        <option value="credito">Cr&#233;dito</option>
+        <option value="otro">Otro</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pago-enviar-email" checked style="width:auto">
+        Enviar comprobante por email
+      </label>
+    </div>
+    <div id="modal-pago-msg"></div>
+    <div class="modal-btns">
+      <button class="btn btn-gold" onclick="guardarPago()">Registrar pago</button>
+      <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL HORARIO -->
 <div class="modal-overlay" id="modal-horario">
   <div class="modal">
@@ -721,6 +767,66 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbzVWFNMobyViDkvrg0WrYwd
 let adminToken = sessionStorage.getItem('spl_admin') || null;
 let todosHorarios = [], todasReservas = [], todosClientes = [];
 let filtroEstadoReservas = 'activa';
+
+
+// == PAGOS ==================================================================
+var _pagoClienteId = null;
+
+async function abrirPago(clienteId) {
+  _pagoClienteId = clienteId;
+  var c = todosClientes.find(function(x){ return x.id === clienteId; });
+  if (!c) return;
+  document.getElementById('modal-pago-clienteNombre').textContent = c.nombre;
+  // Fecha hoy por defecto
+  document.getElementById('pago-fecha').value = new Date().toLocaleDateString('sv');
+  // Cargar planes
+  var select = document.getElementById('pago-plan');
+  select.innerHTML = todosAbonos.map(function(a){
+    var sel = c.tipo_abono === a.nombre ? ' selected' : '';
+    return '<option value="' + a.nombre + '"' + sel + '>' + a.nombre + '</option>';
+  }).join('');
+  document.getElementById('pago-monto').value = '';
+  document.getElementById('pago-tipo').value = 'efectivo';
+  document.getElementById('pago-enviar-email').checked = true;
+  document.getElementById('modal-pago-msg').innerHTML = '';
+  abrirModal('modal-pago');
+}
+
+async function guardarPago() {
+  var clienteId = _pagoClienteId;
+  var fecha     = document.getElementById('pago-fecha').value;
+  var plan      = document.getElementById('pago-plan').value;
+  var monto     = document.getElementById('pago-monto').value;
+  var tipo      = document.getElementById('pago-tipo').value;
+  var enviarEmail = document.getElementById('pago-enviar-email').checked;
+  var msg       = document.getElementById('modal-pago-msg');
+
+  if (!fecha || !plan || !monto) {
+    msg.innerHTML = '<div class="msg error">Completa todos los campos</div>';
+    return;
+  }
+
+  msg.innerHTML = '<div class="msg" style="color:var(--muted)">Guardando...</div>';
+
+  var res = await api('adminRegistrarPago', {
+    clienteId:    clienteId,
+    fecha:        fecha,
+    plan:         plan,
+    monto:        monto,
+    tipo:         tipo,
+    enviarEmail:  enviarEmail ? 'true' : 'false'
+  });
+
+  if (res.ok) {
+    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado' + (enviarEmail ? ' y comprobante enviado' : '') + '</div>';
+    // Actualizar lista de clientes para reflejar nuevo plan
+    await cargarClientes();
+    setTimeout(function(){ cerrarModal('modal-pago'); }, 1200);
+  } else {
+    msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al guardar') + '</div>';
+  }
+}
+// == FIN PAGOS ==============================================================
 
 
 // == BIOMETRICO ADMIN (WebAuthn) ============================================
@@ -1126,7 +1232,7 @@ function renderClientes() {
       ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>' : '';
     var msgWA = 'Hola ' + (c.nombre||'').split(' ')[0] + '! Te escribimos desde Studio PL.';
     var waLink = telWA
-      ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WhatsApp</a>'
+      ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WA</a>'
       : '';
     return '<div class="cliente-card" style="' + (!activo ? 'opacity:.6' : '') + '">' +
       '<div><div class="cliente-card-nombre">' + (c.nombre||'-') + '</div>' +
@@ -1137,7 +1243,8 @@ function renderClientes() {
       '<div class="cliente-card-badges">' + estadoHtml + abonoHtml + credHtml + '</div>' +
       vencHtml + proxHtml +
       '<div class="cliente-card-acciones">' +
-        '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ver ficha</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ficha</button>' +
+        '<button class="btn btn-gold btn-sm" onclick="abrirPago(\'' + c.id + '\')">&#36; Pago</button>' +
         waLink +
       '</div></div>';
   }).join('');
@@ -1148,6 +1255,8 @@ async function verFicha(clienteId) {
   document.getElementById('ficha-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div></div>';
   abrirModal('modal-ficha');
   const res = await api('adminGetFicha', { clienteId });
+  const resPagos = await api('adminGetPagos', { clienteId });
+  const pagos = (resPagos.ok && resPagos.pagos) ? resPagos.pagos : [];
   if (!res.ok) { document.getElementById('ficha-content').innerHTML = `<p style="color:var(--error)">${res.error}</p>`; return; }
   const c = res.cliente, p = res.parq, reservas = res.reservas || [];
   const activo = c.activo===true||c.activo==='TRUE';
@@ -1169,15 +1278,15 @@ async function verFicha(clienteId) {
   if (reservas && reservas.length) {
     const DIAS_ES = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
     const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const ahoraMs = new Date().getTime();
-    const reservasFuturas = reservas.filter(function(r) {
+    const ahoraMs2 = new Date().getTime();
+    const reservasFuturas2 = reservas.filter(function(r) {
       const fc2 = r.fecha_clase ? String(r.fecha_clase).substring(0,10) : null;
       if (!fc2) return false;
       const horaRaw2 = r.horario && r.horario.hora ? String(r.horario.hora) : '23:59';
-      return new Date(fc2 + 'T' + horaRaw2 + ':00').getTime() > ahoraMs;
+      return new Date(fc2 + 'T' + horaRaw2 + ':00').getTime() > ahoraMs2;
     });
-    if (reservasFuturas.length) {
-      const pr = reservasFuturas[0];
+    if (reservasFuturas2.length) {
+      const pr = reservasFuturas2[0];
       const fc = String(pr.fecha_clase).substring(0,10);
       const d = new Date(fc + 'T00:00:00');
       const horaRaw = pr.horario && pr.horario.hora ? String(pr.horario.hora) : '';
@@ -1252,7 +1361,18 @@ async function verFicha(clienteId) {
       <button class="btn btn-gold btn-sm" onclick="cerrarModal('modal-ficha');editarCliente('${c.id}')">Editar</button>
       <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha');abrirHorariosFijos('${c.id}')">Horarios fijos</button>
       <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha')">Cerrar</button>
-    </div>`;
+    </div>    <div style="margin-top:24px">
+      <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Historial de pagos</div>
+      ${pagos.length ? pagos.map(p => `
+        <div class="pago-row">
+          <div>
+            <div style="font-weight:500;font-size:13px">${p.plan || '-'}</div>
+            <div class="pago-tipo">${p.tipo || ''} &#183; ${p.fecha || ''}</div>
+          </div>
+          <div class="pago-monto">$${Number(p.monto||0).toLocaleString('es-AR')}</div>
+        </div>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin pagos registrados</div>'}
+    </div>
+    `;
 }
 
 // &#9472;&#9472; CLIENTES CRUD &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
@@ -1935,6 +2055,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.2</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.3</div>
 </body>
 </html>
