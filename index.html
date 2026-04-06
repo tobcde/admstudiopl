@@ -1136,7 +1136,7 @@ function renderClientes() {
       '<div class="cliente-card-badges">' + estadoHtml + abonoHtml + credHtml + '</div>' +
       vencHtml + proxHtml +
       '<div class="cliente-card-acciones">' +
-        '<button class="btn btn-outline btn-sm" onclick="abrirFichaCliente(\'' + c.id + '\')">Ver ficha</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ver ficha</button>' +
         waLink +
       '</div></div>';
   }).join('');
@@ -1927,6 +1927,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.7</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.8</div>
 </body>
 </html>
