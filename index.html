@@ -742,7 +742,7 @@ async function registrarBioAdmin() {
       timeout: 60000
     }});
     if (!cred) return;
-    sessionStorage.setItem('spl_bio_admin_id', cred.id);
+    localStorage.setItem('spl_bio_admin_id', cred.id);
     alert('Biometrico activado! La proxima vez podes ingresar sin contrasena.');
   } catch(e) { alert('Error: ' + e.message); }
 }
@@ -751,7 +751,7 @@ async function loginBioAdmin() {
     document.getElementById('login-error').innerHTML='<div class="msg error">Este dispositivo no soporta biometrico</div>';
     return;
   }
-  var bioId = sessionStorage.getItem('spl_bio_admin_id');
+  var bioId = localStorage.getItem('spl_bio_admin_id');
   if (!bioId) {
     document.getElementById('login-error').innerHTML='<div class="msg error">No hay biometrico registrado. Ingresa con contrasena primero.</div>';
     return;
@@ -778,7 +778,7 @@ async function loginBioAdmin() {
       cargarTodo();
     } else {
       document.getElementById('login-error').innerHTML='<div class="msg error">Sesion expirada. Ingresa con contrasena una vez mas.</div>';
-      sessionStorage.removeItem('spl_bio_admin_id');
+      localStorage.removeItem('spl_bio_admin_id');
     }
   } catch(e) {
     document.getElementById('login-error').innerHTML='<div class="msg error">Biometrico cancelado: ' + e.message + '</div>';
@@ -788,7 +788,7 @@ async function loginBioAdmin() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
-  if (sessionStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
+  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
 });
 
 async function api(action, params={}) {
@@ -809,7 +809,7 @@ async function adminLogin() {
     sessionStorage.setItem('spl_bio_admin_token', adminToken);
     document.getElementById('login-screen').style.display='none';
     cargarTodo();
-    if (bioAdminDisponible() && !sessionStorage.getItem('spl_bio_admin_id')) {
+    if (bioAdminDisponible() && !localStorage.getItem('spl_bio_admin_id')) {
       setTimeout(function() {
         if (confirm('Queres activar el acceso con huella o Face ID para la proxima vez?')) {
           registrarBioAdmin();
@@ -1192,22 +1192,22 @@ async function verFicha(clienteId) {
     {
       label: '&#128197; Recordatorio clase',
       texto: proxReservaStr
-        ? `Hola ${nombre1}! Te recordamos que tenes clase en Studio PL el ${proxReservaStr}. !Te esperamos! &#10024;`
-        : `Hola ${nombre1}! Te recordamos que tenes clase proximamente en Studio PL. !Te esperamos! &#10024;`
+        ? `Hola ${nombre1}! Te recordamos que tenes clase en Studio PL el ${proxReservaStr}. !Te esperamos!`
+        : `Hola ${nombre1}! Te recordamos que tenes clase proximamente en Studio PL. !Te esperamos!`
     },
     {
       label: '&#10060; Reservas canceladas',
       texto: vencStr
-        ? `Hola ${nombre1}! Tu abono vencio el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos &#10024;`
-        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono vencio. Cuando quieras renovar, avisanos y te ayudamos &#10024;`
+        ? `Hola ${nombre1}! Tu abono vencio el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos`
+        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono vencio. Cuando quieras renovar, avisanos y te ayudamos`
     },
     {
       label: '&#127881; Bienvenida',
-      texto: `Bienvenida al Studio PL, ${nombre1}! &#127881; Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos aca.`
+      texto: `Bienvenida al Studio PL, ${nombre1}! Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos aca.`
     },
     {
       label: '&#128221; Completar datos',
-      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. !Gracias! &#9989;`
+      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. !Gracias! `
     },
   ];
 
@@ -1927,6 +1927,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.8</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.0</div>
 </body>
 </html>
