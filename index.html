@@ -315,6 +315,26 @@
     .cliente-card-venc.vencido { color:#e08070; }
     .cliente-card-acciones { display:flex; gap:8px; margin-top:4px; }
     .badge.nueva { background:rgba(150,80,200,0.2); color:#c08de8; border:1px solid rgba(150,80,200,0.4); }
+
+    .clientes-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:4px 0 24px; }
+    @media(max-width:1100px){ .clientes-grid { grid-template-columns:repeat(2,1fr); } }
+    @media(max-width:640px){  .clientes-grid { grid-template-columns:1fr; } }
+    .cliente-card { background:var(--dark2); border:1px solid var(--border); padding:18px 20px; display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .2s; }
+    .cliente-card:hover { border-color:var(--gold); }
+    .cliente-card-nombre { font-size:14px; font-weight:600; color:var(--gold-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cliente-card-sub { font-size:10px; color:var(--muted); letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .cliente-card-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+    .cliente-card-venc { font-size:10px; color:var(--muted); }
+    .cliente-card-venc.pronto { color:#c9a96e; }
+    .cliente-card-venc.vencido { color:#e08070; }
+    .cliente-card-acciones { display:flex; gap:8px; margin-top:4px; }
+    .badge.nueva { background:rgba(150,80,200,0.2); color:#c08de8; border:1px solid rgba(150,80,200,0.4); }
+    .btn-bio { width:100%; background:none; border:1px solid var(--gold); color:var(--gold-light);
+      padding:13px; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer;
+      font-family:'Montserrat',sans-serif; transition:all .2s; display:flex; align-items:center;
+      justify-content:center; gap:8px; margin-top:10px; }
+    .btn-bio:hover { background:var(--gold); color:var(--dark); }
+    @media(max-width: 768px) { main { min-height: calc(100vh - 56px); } }
   </style>
 </head>
 <body>
@@ -337,6 +357,7 @@
     <div id="login-error"></div>
     <div class="form-group"><label>Contrase&#241;a</label><input type="password" id="admin-pass" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
     <button class="btn-primary" onclick="adminLogin()">Ingresar</button>
+      <button class="btn-bio" onclick="loginBioAdmin()" id="btn-bio-admin" style="display:none">&#128274; Ingresar con huella / Face ID</button>
   </div>
 </div>
 
@@ -427,6 +448,7 @@
         <option value="inactiva">Solo inactivas</option>
         <option value="vencida">Abono vencido</option>
         <option value="sinabono">Sin abono</option>
+          <option value="nueva">Nuevas</option>
           <option value="nueva">Nuevas</option>
       </select>
       <select id="filtro-abono" onchange="renderClientes()"
@@ -700,8 +722,73 @@ let adminToken = sessionStorage.getItem('spl_admin') || null;
 let todosHorarios = [], todasReservas = [], todosClientes = [];
 let filtroEstadoReservas = 'activa';
 
+
+// == BIOMETRICO ADMIN (WebAuthn) ============================================
+function bioAdminDisponible() {
+  return !!(window.PublicKeyCredential && navigator.credentials);
+}
+async function registrarBioAdmin() {
+  if (!bioAdminDisponible()) { alert('Este dispositivo no soporta biometrico'); return; }
+  try {
+    var challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+    var userId = new TextEncoder().encode('spl_admin');
+    var cred = await navigator.credentials.create({publicKey: {
+      challenge: challenge,
+      rp: { name: 'Studio PL Admin', id: location.hostname },
+      user: { id: userId, name: 'admin', displayName: 'Admin Studio PL' },
+      pubKeyCredParams: [{alg: -7, type: 'public-key'}, {alg: -257, type: 'public-key'}],
+      authenticatorSelection: { userVerification: 'required' },
+      timeout: 60000
+    }});
+    if (!cred) return;
+    sessionStorage.setItem('spl_bio_admin_id', cred.id);
+    alert('Biometrico activado! La proxima vez podes ingresar sin contrasena.');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+async function loginBioAdmin() {
+  if (!bioAdminDisponible()) {
+    document.getElementById('login-error').innerHTML='<div class="msg error">Este dispositivo no soporta biometrico</div>';
+    return;
+  }
+  var bioId = sessionStorage.getItem('spl_bio_admin_id');
+  if (!bioId) {
+    document.getElementById('login-error').innerHTML='<div class="msg error">No hay biometrico registrado. Ingresa con contrasena primero.</div>';
+    return;
+  }
+  try {
+    var challenge = new Uint8Array(32);
+    window.crypto.getRandomValues(challenge);
+    var bin = atob(bioId.replace(/-/g,'+').replace(/_/g,'/'));
+    var bytes = new Uint8Array(bin.length);
+    for (var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var cred = await navigator.credentials.get({publicKey: {
+      challenge: challenge,
+      rpId: location.hostname,
+      allowCredentials: [{ id: bytes.buffer, type: 'public-key' }],
+      userVerification: 'required',
+      timeout: 60000
+    }});
+    if (!cred) return;
+    var storedToken = sessionStorage.getItem('spl_bio_admin_token');
+    if (storedToken) {
+      adminToken = storedToken;
+      sessionStorage.setItem('spl_admin', adminToken);
+      document.getElementById('login-screen').style.display = 'none';
+      cargarTodo();
+    } else {
+      document.getElementById('login-error').innerHTML='<div class="msg error">Sesion expirada. Ingresa con contrasena una vez mas.</div>';
+      sessionStorage.removeItem('spl_bio_admin_id');
+    }
+  } catch(e) {
+    document.getElementById('login-error').innerHTML='<div class="msg error">Biometrico cancelado: ' + e.message + '</div>';
+  }
+}
+// == FIN BIOMETRICO ADMIN ===================================================
+
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
+  if (sessionStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
 });
 
 async function api(action, params={}) {
@@ -719,8 +806,16 @@ async function adminLogin() {
   if (res.ok) {
     adminToken = res.token;
     sessionStorage.setItem('spl_admin', adminToken);
+    sessionStorage.setItem('spl_bio_admin_token', adminToken);
     document.getElementById('login-screen').style.display='none';
     cargarTodo();
+    if (bioAdminDisponible() && !sessionStorage.getItem('spl_bio_admin_id')) {
+      setTimeout(function() {
+        if (confirm('Queres activar el acceso con huella o Face ID para la proxima vez?')) {
+          registrarBioAdmin();
+        }
+      }, 800);
+    }
   } else {
     document.getElementById('login-error').innerHTML='<div class="msg error">Contrasena incorrecta</div>';
   }
@@ -980,9 +1075,7 @@ function renderClientes() {
   var filtroAbono = document.getElementById('filtro-abono')?.value || '';
   var grid = document.getElementById('clientes-tbody');
   var hoy = new Date().toLocaleDateString('sv');
-
   var data = todosClientes.slice();
-
   if (buscar) data = data.filter(function(c){
     return (c.nombre||'').toLowerCase().includes(buscar) ||
            (c.email||'').toLowerCase().includes(buscar) ||
@@ -994,66 +1087,46 @@ function renderClientes() {
   if (filtroEst === 'sinabono') data = data.filter(function(c){ return !c.tipo_abono || c.tipo_abono==='NUEVA'; });
   if (filtroEst === 'nueva')    data = data.filter(function(c){ return c.tipo_abono==='NUEVA'; });
   if (filtroAbono) data = data.filter(function(c){ return c.tipo_abono === filtroAbono; });
-
   data.sort(function(a,b){
     var na=(a.nombre||'').toLowerCase(), nb=(b.nombre||'').toLowerCase();
     return ordenAsc ? na.localeCompare(nb,'es') : nb.localeCompare(na,'es');
   });
-
   var counter = document.getElementById('clientes-count');
   if (counter) counter.textContent = data.length + ' clienta' + (data.length!==1?'s':'');
-
   if (!data.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)">No hay clientes con esos filtros</div>';
     return;
   }
-
   grid.innerHTML = data.map(function(c){
     var activo = c.activo===true||c.activo==='TRUE';
     var telLimpio = (c.telefono||'').toString().replace(/\D/g,'');
     var telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54' + telLimpio) : '';
-
-    var abonoHtml = '';
-    if (c.tipo_abono === 'NUEVA') {
-      abonoHtml = '<span class="badge nueva">NUEVA</span>';
-    } else if (c.tipo_abono) {
-      abonoHtml = '<span class="badge activo" style="font-size:9px">' + c.tipo_abono + '</span>';
-    } else {
-      abonoHtml = '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
-    }
-
+    var abonoHtml = c.tipo_abono === 'NUEVA'
+      ? '<span class="badge nueva">NUEVA</span>'
+      : c.tipo_abono ? '<span class="badge activo" style="font-size:9px">' + c.tipo_abono + '</span>'
+      : '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
     var estadoHtml = activo
       ? '<span class="badge activo" style="font-size:9px">Activa</span>'
       : '<span class="badge inactivo" style="font-size:9px">Inactiva</span>';
-
-    var credHtml = '';
-    if (c.tipo_abono && c.tipo_abono !== 'NUEVA') {
-      var cred = c.creditosRestantes === 'Infinito' ? '&#8734;' : (c.creditosRestantes ?? '-');
-      credHtml = '<span style="font-size:11px;color:var(--gold)">' + cred + ' cr&#233;d.</span>';
-    }
-
+    var credHtml = (c.tipo_abono && c.tipo_abono !== 'NUEVA')
+      ? '<span style="font-size:11px;color:var(--gold)">' + (c.creditosRestantes === 'Infinito' ? '&#8734;' : (c.creditosRestantes ?? '-')) + ' cr&#233;d.</span>'
+      : '';
     var vencHtml = '';
     if (c.fechaVencimiento) {
       var fv = c.fechaVencimiento;
       var dias = Math.round((new Date(fv) - new Date(hoy)) / 86400000);
-      if (c.abonoVencido) {
-        vencHtml = '<div class="cliente-card-venc vencido">&#9888; Vencido ' + fmtFechaUI(fv) + '</div>';
-      } else if (dias <= 7) {
-        vencHtml = '<div class="cliente-card-venc pronto">&#9679; Vence en ' + dias + 'd (' + fmtFechaUI(fv) + ')</div>';
-      } else {
-        vencHtml = '<div class="cliente-card-venc">Vence: ' + fmtFechaUI(fv) + '</div>';
-      }
+      vencHtml = c.abonoVencido
+        ? '<div class="cliente-card-venc vencido">&#9888; Vencido ' + fmtFechaUI(fv) + '</div>'
+        : dias <= 7
+          ? '<div class="cliente-card-venc pronto">&#9679; Vence en ' + dias + 'd (' + fmtFechaUI(fv) + ')</div>'
+          : '<div class="cliente-card-venc">Vence: ' + fmtFechaUI(fv) + '</div>';
     }
-
     var proxHtml = c.totalReservas > 0
-      ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>'
-      : '';
-
+      ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>' : '';
     var msgWA = 'Hola ' + (c.nombre||'').split(' ')[0] + '! Te escribimos desde Studio PL.';
     var waLink = telWA
       ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WhatsApp</a>'
       : '';
-
     return '<div class="cliente-card" style="' + (!activo ? 'opacity:.6' : '') + '">' +
       '<div><div class="cliente-card-nombre">' + (c.nombre||'-') + '</div>' +
       '<div class="cliente-card-sub">' + (c.email||'-') + '</div>' +
@@ -1854,6 +1927,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.6</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.7</div>
 </body>
 </html>
