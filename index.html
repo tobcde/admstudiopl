@@ -732,11 +732,12 @@ let filtroEstadoReservas = 'activa';
 var _pagoClienteId = null;
 
 async function abrirPago(clienteId) {
-  _pagoClienteId = clienteId;
   var c = todosClientes.find(function(x){ return x.id === clienteId; });
   if (!c) return;
-  // Cargar abonos si no estan
+  // Cargar abonos si no estan (antes de asignar _pagoClienteId)
   if (!todosAbonos || !todosAbonos.length) await cargarAbonos();
+  // Asignar DESPUES del await para que no se pierda
+  _pagoClienteId = clienteId;
   // Nombre cliente
   var el = document.getElementById('pago-clienteNombre');
   if (el) el.textContent = c.nombre;
@@ -913,10 +914,10 @@ function setVencimiento(dias) {
   document.getElementById('c-fecha-vencimiento').value = base.toISOString().split('T')[0];
 }
 function setVencPago(dias) {
-  const fpago = document.getElementById('pago-fpago').value;
-  const base = fpago ? new Date(fpago+'T00:00:00') : new Date();
+  var fpago = document.getElementById('pago-fpago').value;
+  var base = fpago ? new Date(fpago + 'T00:00:00') : new Date();
   base.setDate(base.getDate() + dias);
-  document.getElementById('pago-fvenc').value = base.toISOString().split('T')[0];
+  document.getElementById('pago-fvenc').value = base.toLocaleDateString('sv');
 }
 function toggleSidebar() {
   document.querySelector('aside').classList.toggle('open');
@@ -1856,9 +1857,9 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
         <label>Vencimiento</label>
         <input type="date" id="pago-fvenc">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(30)" type="button">1 mes</button>
-          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(60)" type="button">2 meses</button>
-          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(90)" type="button">3 meses</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(60)" type="button">2 meses</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
         </div>
       </div>
     </div>
@@ -2047,6 +2048,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.6</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.7</div>
 </body>
 </html>
