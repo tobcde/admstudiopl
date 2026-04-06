@@ -784,17 +784,14 @@ function irA(seccion, navEl) {
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   var page = document.getElementById('page-'+seccion);
   if (page) page.classList.add('active');
-  // navEl puede ser el elemento o buscarlo por seccion
-  var el = navEl || document.querySelector('[onclick*=\"irA(\''+seccion+'\'\")"]');
-  if (el) el.classList.add('active');
-  const titles = { dashboard:'Dashboard', horarios:'Horarios', reservas:'Reservas', clientes:'Clientes', abonos:'Abonos', fijos:'Horarios fijos', config:'Configuracion' };
+  if (navEl) navEl.classList.add('active');
+  var titles = { dashboard:'Dashboard', horarios:'Horarios', reservas:'Reservas', clientes:'Clientes', abonos:'Abonos', fijos:'Horarios fijos', config:'Configuracion' };
   var titleEl = document.getElementById('mobile-page-title');
   if (titleEl) titleEl.textContent = titles[seccion] || seccion;
   var aside = document.querySelector('aside');
   if (aside) aside.classList.remove('open');
   var overlay = document.getElementById('sidebar-overlay');
   if (overlay) overlay.classList.remove('open');
-  // Cargar datos de la seccion
   if (seccion==='horarios')  cargarHorarios();
   if (seccion==='reservas')  cargarReservas();
   if (seccion==='abonos')    cargarAbonos();
@@ -1856,6 +1853,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.4</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.5</div>
 </body>
 </html>
