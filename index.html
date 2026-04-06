@@ -572,55 +572,6 @@
   </div>
 </main>
 
-<!-- MODAL PAGO -->
-<div class="modal-overlay" id="modal-pago">
-  <div class="modal" style="max-width:440px">
-    <div class="modal-title">Registrar pago</div>
-    <div id="modal-pago-clienteNombre" style="font-size:12px;color:var(--muted);margin-bottom:20px;letter-spacing:1px;text-transform:uppercase"></div>
-    <div class="form-group">
-      <label>Fecha del pago / inicio del plan</label>
-      <input type="date" id="pago-fecha" onchange="calcularFechaHasta()">
-    </div>
-    <div class="form-group">
-      <label>Fecha de vencimiento</label>
-      <input type="date" id="pago-fechahasta">
-    </div>
-    <div class="form-group">
-      <label>Plan pagado</label>
-      <select id="pago-plan"></select>
-    </div>
-    <div class="form-group">
-      <label>Monto ($)</label>
-      <input type="number" id="pago-monto" placeholder="0" min="0" step="100">
-    </div>
-    <div class="form-group">
-      <label>Tipo de pago</label>
-      <select id="pago-tipo">
-        <option value="efectivo">Efectivo</option>
-        <option value="transferencia">Transferencia</option>
-        <option value="debito">D&#233;bito</option>
-        <option value="credito">Cr&#233;dito</option>
-        <option value="otro">Otro</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label>Nota (opcional)</label>
-      <input type="text" id="pago-nota" placeholder="Ej: pago en cuotas, descuento, etc">
-    </div>
-    <div class="form-group">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="pago-enviar-email" checked style="width:auto">
-        Enviar comprobante por email
-      </label>
-    </div>
-    <div id="modal-pago-msg"></div>
-    <div class="modal-btns">
-      <button class="btn btn-gold" onclick="guardarPago()">Registrar pago</button>
-      <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
-    </div>
-  </div>
-</div>
-
 <!-- MODAL HORARIO -->
 <div class="modal-overlay" id="modal-horario">
   <div class="modal">
@@ -780,79 +731,68 @@ let filtroEstadoReservas = 'activa';
 // == PAGOS ==================================================================
 var _pagoClienteId = null;
 
-function calcularFechaHasta() {
-  var fechaDesde = document.getElementById('pago-fecha').value;
-  if (!fechaDesde) return;
-  // 30 dias por defecto
-  var d = new Date(fechaDesde + 'T00:00:00');
-  d.setDate(d.getDate() + 30);
-  document.getElementById('pago-fechahasta').value = d.toLocaleDateString('sv');
-}
-
 async function abrirPago(clienteId) {
   _pagoClienteId = clienteId;
   var c = todosClientes.find(function(x){ return x.id === clienteId; });
   if (!c) return;
-  // Si todosAbonos no cargo todavia, esperarlo
-  if (!todosAbonos || !todosAbonos.length) {
-    await cargarAbonos();
-  }
-  document.getElementById('modal-pago-clienteNombre').textContent = c.nombre;
-  // Fecha hoy por defecto
-  var hoy = new Date().toLocaleDateString('sv');
-  document.getElementById('pago-fecha').value = hoy;
-  // Fecha vencimiento: hoy + 30 dias
-  var d30 = new Date();
-  d30.setDate(d30.getDate() + 30);
-  document.getElementById('pago-fechahasta').value = d30.toLocaleDateString('sv');
-  // Cargar planes
-  var select = document.getElementById('pago-plan');
+  // Cargar abonos si no estan
+  if (!todosAbonos || !todosAbonos.length) await cargarAbonos();
+  // Nombre cliente
+  var el = document.getElementById('pago-clienteNombre');
+  if (el) el.textContent = c.nombre;
+  document.getElementById('pago-titulo').textContent = 'Registrar pago - ' + c.nombre.split(' ')[0];
+  // Planes
+  var select = document.getElementById('pago-abono');
   select.innerHTML = todosAbonos.map(function(a){
     var sel = c.tipo_abono === a.nombre ? ' selected' : '';
     return '<option value="' + a.nombre + '"' + sel + '>' + a.nombre + '</option>';
   }).join('');
-  if (!select.options.length) {
-    select.innerHTML = '<option value="">Sin planes cargados en el sistema</option>';
-  }
-  document.getElementById('pago-monto').value = '';
-  document.getElementById('pago-tipo').value = 'efectivo';
-  if (document.getElementById('pago-nota')) document.getElementById('pago-nota').value = '';
-  document.getElementById('pago-enviar-email').checked = true;
-  document.getElementById('modal-pago-msg').innerHTML = '';
+  // Fechas por defecto
+  var hoy = new Date().toLocaleDateString('sv');
+  document.getElementById('pago-fpago').value = hoy;
+  var d30 = new Date(); d30.setDate(d30.getDate() + 30);
+  document.getElementById('pago-fvenc').value = d30.toLocaleDateString('sv');
+  // Limpiar resto
+  if (document.getElementById('pago-monto')) document.getElementById('pago-monto').value = '';
+  if (document.getElementById('pago-tipo')) document.getElementById('pago-tipo').value = 'efectivo';
+  if (document.getElementById('pago-enviar-email')) document.getElementById('pago-enviar-email').checked = true;
+  document.getElementById('pago-msg').innerHTML = '';
   abrirModal('modal-pago');
 }
 
 async function guardarPago() {
   var clienteId  = _pagoClienteId;
-  var fechaDesde = document.getElementById('pago-fecha').value;
-  var fechaHasta = document.getElementById('pago-fechahasta').value;
-  var tipoAbono  = document.getElementById('pago-plan').value;
-  var monto      = document.getElementById('pago-monto').value;
-  var tipoPago   = document.getElementById('pago-tipo').value;
-  var nota       = document.getElementById('pago-nota') ? document.getElementById('pago-nota').value : '';
-  var enviarEmail = document.getElementById('pago-enviar-email').checked;
-  var msg        = document.getElementById('modal-pago-msg');
+  var tipoAbono  = document.getElementById('pago-abono').value;
+  var monto      = document.getElementById('pago-monto') ? document.getElementById('pago-monto').value : '0';
+  var tipoPago   = document.getElementById('pago-tipo') ? document.getElementById('pago-tipo').value : 'efectivo';
+  var fechaDesde = document.getElementById('pago-fpago').value;
+  var fechaHasta = document.getElementById('pago-fvenc').value;
+  var enviarEmail = document.getElementById('pago-enviar-email') ? document.getElementById('pago-enviar-email').checked : true;
+  var msg        = document.getElementById('pago-msg');
 
-  if (!fechaDesde || !fechaHasta || !tipoAbono || !monto) {
-    msg.innerHTML = '<div class="msg error">Completa todos los campos obligatorios</div>';
+  if (!tipoAbono || !fechaDesde || !fechaHasta) {
+    msg.innerHTML = '<div class="msg error">Completa plan, fecha y vencimiento</div>';
     return;
   }
 
   msg.innerHTML = '<div class="msg" style="color:var(--muted)">Guardando...</div>';
 
   var res = await api('adminRegistrarPago', {
-    clienteId:   clienteId,
-    tipoAbono:   tipoAbono,
-    monto:       monto,
-    fechaDesde:  fechaDesde,
-    fechaHasta:  fechaHasta,
-    nota:        tipoPago + (nota ? ' - ' + nota : ''),
+    clienteId:  clienteId,
+    tipoAbono:  tipoAbono,
+    monto:      monto || '0',
+    fechaDesde: fechaDesde,
+    fechaHasta: fechaHasta,
+    nota:       tipoPago
   });
 
   if (res.ok) {
-    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado' + (enviarEmail ? '' : '') + '</div>';
+    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado' + (enviarEmail ? ' - enviando comprobante...' : '') + '</div>';
+    if (enviarEmail) {
+      // El GAS ya envia el email automaticamente en adminRegistrarPago
+    }
     await cargarClientes();
-    setTimeout(function(){ cerrarModal('modal-pago'); }, 1200);
+    setTimeout(function(){ cerrarModal('modal-pago'); }, 1500);
   } else {
     msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al guardar') + '</div>';
   }
@@ -1888,12 +1828,27 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </script>
 <!-- MODAL PAGO -->
 <div class="modal-overlay" id="modal-pago">
-  <div class="modal">
-    <h2 class="modal-title" id="pago-titulo">Registrar pago</h2>
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title" id="pago-titulo">Registrar pago</div>
+    <div id="pago-clienteNombre" style="font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:1px;text-transform:uppercase"></div>
     <div id="pago-msg"></div>
     <div class="form-group">
-      <label>Plan / Abono</label>
-      <select id="pago-abono"><option value="">Mantener actual</option></select>
+      <label>Plan pagado</label>
+      <select id="pago-abono"><option value="">Cargando...</option></select>
+    </div>
+    <div class="form-group">
+      <label>Monto ($)</label>
+      <input type="number" id="pago-monto" placeholder="0" min="0" step="100">
+    </div>
+    <div class="form-group">
+      <label>Tipo de pago</label>
+      <select id="pago-tipo">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="debito">D&#233;bito</option>
+        <option value="credito">Cr&#233;dito</option>
+        <option value="otro">Otro</option>
+      </select>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Fecha de pago</label><input type="date" id="pago-fpago"></div>
@@ -1901,15 +1856,21 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
         <label>Vencimiento</label>
         <input type="date" id="pago-fvenc">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="setVencPago(15)" type="button">15d</button>
-          <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
-          <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(30)" type="button">1 mes</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(60)" type="button">2 meses</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(90)" type="button">3 meses</button>
         </div>
       </div>
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pago-enviar-email" checked style="width:auto">
+        Enviar comprobante por email
+      </label>
+    </div>
     <div class="modal-btns">
+      <button class="btn btn-gold" onclick="guardarPago()">Registrar pago</button>
       <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
-      <button class="btn btn-gold" onclick="guardarPago()">Guardar pago</button>
     </div>
   </div>
 </div>
@@ -2086,6 +2047,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.5</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.6</div>
 </body>
 </html>
