@@ -315,30 +315,6 @@
     .cliente-card-venc.vencido { color:#e08070; }
     .cliente-card-acciones { display:flex; gap:8px; margin-top:4px; }
     .badge.nueva { background:rgba(150,80,200,0.2); color:#c08de8; border:1px solid rgba(150,80,200,0.4); }
-
-    .clientes-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:4px 0 24px; }
-    @media(max-width:1100px){ .clientes-grid { grid-template-columns:repeat(2,1fr); } }
-    @media(max-width:640px){  .clientes-grid { grid-template-columns:1fr; } }
-    .cliente-card { background:var(--dark2); border:1px solid var(--border); padding:18px 20px; display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .2s; }
-    .cliente-card:hover { border-color:var(--gold); }
-    .cliente-card-nombre { font-size:14px; font-weight:600; color:var(--gold-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cliente-card-sub { font-size:10px; color:var(--muted); letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .cliente-card-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-    .cliente-card-venc { font-size:10px; color:var(--muted); }
-    .cliente-card-venc.pronto { color:#c9a96e; }
-    .cliente-card-venc.vencido { color:#e08070; }
-    .cliente-card-acciones { display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
-    .badge.nueva { background:rgba(150,80,200,0.2); color:#c08de8; border:1px solid rgba(150,80,200,0.4); }
-    .btn-bio { width:100%; background:none; border:1px solid var(--gold); color:var(--gold-light);
-      padding:13px; font-size:11px; letter-spacing:2px; text-transform:uppercase; cursor:pointer;
-      font-family:'Montserrat',sans-serif; transition:all .2s; display:flex; align-items:center;
-      justify-content:center; gap:8px; margin-top:10px; }
-    .btn-bio:hover { background:var(--gold); color:var(--dark); }
-    @media(max-width: 768px) { main { min-height: calc(100vh - 56px); } }
-    .pago-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
-    .pago-row:last-child { border-bottom:none; }
-    .pago-monto { font-weight:600; color:var(--gold); }
-    .pago-tipo { color:var(--muted); font-size:11px; }
   </style>
 </head>
 <body>
@@ -361,7 +337,7 @@
     <div id="login-error"></div>
     <div class="form-group"><label>Contrase&#241;a</label><input type="password" id="admin-pass" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
     <button class="btn-primary" onclick="adminLogin()">Ingresar</button>
-      <button class="btn-bio" onclick="loginBioAdmin()" id="btn-bio-admin" style="display:none">&#128274; Ingresar con huella / Face ID</button>
+      <button class="btn-bio" onclick="loginBioAdmin()" id="btn-bio-admin" style="display:none">&#128274; Huella / Face ID</button>
   </div>
 </div>
 
@@ -452,7 +428,6 @@
         <option value="inactiva">Solo inactivas</option>
         <option value="vencida">Abono vencido</option>
         <option value="sinabono">Sin abono</option>
-          <option value="nueva">Nuevas</option>
           <option value="nueva">Nuevas</option>
       </select>
       <select id="filtro-abono" onchange="renderClientes()"
@@ -571,7 +546,6 @@
     </div>
   </div>
 </main>
-
 <!-- MODAL HORARIO -->
 <div class="modal-overlay" id="modal-horario">
   <div class="modal">
@@ -728,134 +702,56 @@ let todosHorarios = [], todasReservas = [], todosClientes = [];
 let filtroEstadoReservas = 'activa';
 
 
-// == PAGOS ==================================================================
-var _pagoClienteId = null;
-
-async function abrirPago(clienteId) {
-  var c = todosClientes.find(function(x){ return x.id === clienteId; });
-  if (!c) return;
-  // Cargar abonos si no estan (antes de asignar _pagoClienteId)
-  if (!todosAbonos || !todosAbonos.length) await cargarAbonos();
-  // Asignar DESPUES del await para que no se pierda
-  document.getElementById('modal-pago').setAttribute('data-cliente-id', clienteId);
-  // Nombre cliente
-  var el = document.getElementById('pago-clienteNombre');
-  if (el) el.textContent = c.nombre;
-  document.getElementById('pago-titulo').textContent = 'Registrar pago - ' + c.nombre.split(' ')[0];
-  // Planes
-  var select = document.getElementById('pago-abono');
-  select.innerHTML = todosAbonos.map(function(a){
-    var sel = c.tipo_abono === a.nombre ? ' selected' : '';
-    return '<option value="' + a.nombre + '"' + sel + '>' + a.nombre + '</option>';
-  }).join('');
-  // Fechas por defecto
-  var hoy = new Date().toLocaleDateString('sv');
-  document.getElementById('pago-fpago').value = hoy;
-  var d30 = new Date(); d30.setDate(d30.getDate() + 30);
-  document.getElementById('pago-fvenc').value = d30.toLocaleDateString('sv');
-  // Limpiar resto
-  if (document.getElementById('pago-monto')) document.getElementById('pago-monto').value = '';
-  if (document.getElementById('pago-tipo')) document.getElementById('pago-tipo').value = 'efectivo';
-  if (document.getElementById('pago-enviar-email')) document.getElementById('pago-enviar-email').checked = true;
-  document.getElementById('pago-msg').innerHTML = '';
-  abrirModal('modal-pago');
-}
-
-async function guardarPago() {
-  var clienteId  = document.getElementById('modal-pago').getAttribute('data-cliente-id');
-  var tipoAbono  = document.getElementById('pago-abono').value;
-  var monto      = document.getElementById('pago-monto') ? document.getElementById('pago-monto').value : '0';
-  var tipoPago   = document.getElementById('pago-tipo') ? document.getElementById('pago-tipo').value : 'efectivo';
-  var fechaDesde = document.getElementById('pago-fpago').value;
-  var fechaHasta = document.getElementById('pago-fvenc').value;
-  var msg        = document.getElementById('pago-msg');
-
-  if (!clienteId || !tipoAbono || !fechaDesde || !fechaHasta) {
-    msg.innerHTML = '<div class="msg error">Completa todos los campos</div>';
-    return;
-  }
-
-  msg.innerHTML = '<div class="msg" style="color:var(--muted);display:flex;align-items:center;gap:8px"><div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div>&nbsp;Registrando pago...</div>';
-
-  var res = await api('adminRegistrarPago', {
-    clienteId:  clienteId,
-    tipoAbono:  tipoAbono,
-    monto:      monto || '0',
-    fechaDesde: fechaDesde,
-    fechaHasta: fechaHasta,
-    nota:       tipoPago
-  });
-
-  if (res.ok) {
-    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado correctamente</div>';
-    await cargarClientes();
-    setTimeout(function(){ cerrarModal('modal-pago'); }, 1500);
-  } else {
-    msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al registrar') + '</div>';
-  }
-}
+// == BIOMETRICO ADMIN =======================================================
+function bioAdminDisponible() { return !!(window.PublicKeyCredential && navigator.credentials); }
 async function registrarBioAdmin() {
   if (!bioAdminDisponible()) { alert('Este dispositivo no soporta biometrico'); return; }
   try {
-    var challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
-    var userId = new TextEncoder().encode('spl_admin');
-    var cred = await navigator.credentials.create({publicKey: {
-      challenge: challenge,
-      rp: { name: 'Studio PL Admin', id: location.hostname },
-      user: { id: userId, name: 'admin', displayName: 'Admin Studio PL' },
-      pubKeyCredParams: [{alg: -7, type: 'public-key'}, {alg: -257, type: 'public-key'}],
-      authenticatorSelection: { userVerification: 'required' },
-      timeout: 60000
+    var ch = new Uint8Array(32); window.crypto.getRandomValues(ch);
+    var uid2 = new TextEncoder().encode('spl_admin');
+    var cred = await navigator.credentials.create({publicKey:{
+      challenge:ch, rp:{name:'Studio PL Admin',id:location.hostname},
+      user:{id:uid2,name:'admin',displayName:'Admin Studio PL'},
+      pubKeyCredParams:[{alg:-7,type:'public-key'},{alg:-257,type:'public-key'}],
+      authenticatorSelection:{userVerification:'required'},timeout:60000
     }});
     if (!cred) return;
     localStorage.setItem('spl_bio_admin_id', cred.id);
-    alert('Biometrico activado! La proxima vez podes ingresar sin contrasena.');
+    alert('Biometrico activado!');
   } catch(e) { alert('Error: ' + e.message); }
 }
 async function loginBioAdmin() {
-  if (!bioAdminDisponible()) {
-    document.getElementById('login-error').innerHTML='<div class="msg error">Este dispositivo no soporta biometrico</div>';
-    return;
-  }
+  var errEl = document.getElementById('login-error');
+  if (!bioAdminDisponible()) { errEl.innerHTML='<div class="msg error">No soportado</div>'; return; }
   var bioId = localStorage.getItem('spl_bio_admin_id');
-  if (!bioId) {
-    document.getElementById('login-error').innerHTML='<div class="msg error">No hay biometrico registrado. Ingresa con contrasena primero.</div>';
-    return;
-  }
+  if (!bioId) { errEl.innerHTML='<div class="msg error">No hay biometrico registrado. Ingresa con contrasena primero.</div>'; return; }
   try {
-    var challenge = new Uint8Array(32);
-    window.crypto.getRandomValues(challenge);
+    var ch = new Uint8Array(32); window.crypto.getRandomValues(ch);
     var bin = atob(bioId.replace(/-/g,'+').replace(/_/g,'/'));
     var bytes = new Uint8Array(bin.length);
-    for (var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    var cred = await navigator.credentials.get({publicKey: {
-      challenge: challenge,
-      rpId: location.hostname,
-      allowCredentials: [{ id: bytes.buffer, type: 'public-key' }],
-      userVerification: 'required',
-      timeout: 60000
+    for (var i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+    var cred = await navigator.credentials.get({publicKey:{
+      challenge:ch, rpId:location.hostname,
+      allowCredentials:[{id:bytes.buffer,type:'public-key'}],
+      userVerification:'required', timeout:60000
     }});
     if (!cred) return;
-    var storedToken = sessionStorage.getItem('spl_bio_admin_token') || localStorage.getItem('spl_bio_admin_token');
-    if (storedToken) {
-      adminToken = storedToken;
+    var tok = sessionStorage.getItem('spl_bio_admin_token') || localStorage.getItem('spl_bio_admin_token');
+    if (tok) {
+      adminToken = tok;
       sessionStorage.setItem('spl_admin', adminToken);
-      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('login-screen').style.display='none';
       cargarTodo();
     } else {
-      document.getElementById('login-error').innerHTML='<div class="msg error">Sesion expirada. Ingresa con contrasena una vez mas.</div>';
+      errEl.innerHTML='<div class="msg error">Sesion expirada. Ingresa con contrasena.</div>';
       localStorage.removeItem('spl_bio_admin_id');
     }
-  } catch(e) {
-    document.getElementById('login-error').innerHTML='<div class="msg error">Biometrico cancelado: ' + e.message + '</div>';
-  }
+  } catch(e) { document.getElementById('login-error').innerHTML='<div class="msg error">Cancelado: '+e.message+'</div>'; }
 }
 // == FIN BIOMETRICO ADMIN ===================================================
 
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
-  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
   if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
 });
 
@@ -879,10 +775,8 @@ async function adminLogin() {
     document.getElementById('login-screen').style.display='none';
     cargarTodo();
     if (bioAdminDisponible() && !localStorage.getItem('spl_bio_admin_id')) {
-      setTimeout(function() {
-        if (confirm('Queres activar el acceso con huella o Face ID para la proxima vez?')) {
-          registrarBioAdmin();
-        }
+      setTimeout(function(){
+        if (confirm('Activar huella o Face ID para la proxima vez?')) registrarBioAdmin();
       }, 800);
     }
   } else {
@@ -904,10 +798,10 @@ function setVencimiento(dias) {
   document.getElementById('c-fecha-vencimiento').value = base.toISOString().split('T')[0];
 }
 function setVencPago(dias) {
-  var fpago = document.getElementById('pago-fpago').value;
-  var base = fpago ? new Date(fpago + 'T00:00:00') : new Date();
+  const fpago = document.getElementById('pago-fpago').value;
+  const base = fpago ? new Date(fpago+'T00:00:00') : new Date();
   base.setDate(base.getDate() + dias);
-  document.getElementById('pago-fvenc').value = base.toLocaleDateString('sv');
+  document.getElementById('pago-fvenc').value = base.toISOString().split('T')[0];
 }
 function toggleSidebar() {
   document.querySelector('aside').classList.toggle('open');
@@ -1144,7 +1038,9 @@ function renderClientes() {
   var filtroAbono = document.getElementById('filtro-abono')?.value || '';
   var grid = document.getElementById('clientes-tbody');
   var hoy = new Date().toLocaleDateString('sv');
+
   var data = todosClientes.slice();
+
   if (buscar) data = data.filter(function(c){
     return (c.nombre||'').toLowerCase().includes(buscar) ||
            (c.email||'').toLowerCase().includes(buscar) ||
@@ -1156,46 +1052,66 @@ function renderClientes() {
   if (filtroEst === 'sinabono') data = data.filter(function(c){ return !c.tipo_abono || c.tipo_abono==='NUEVA'; });
   if (filtroEst === 'nueva')    data = data.filter(function(c){ return c.tipo_abono==='NUEVA'; });
   if (filtroAbono) data = data.filter(function(c){ return c.tipo_abono === filtroAbono; });
+
   data.sort(function(a,b){
     var na=(a.nombre||'').toLowerCase(), nb=(b.nombre||'').toLowerCase();
     return ordenAsc ? na.localeCompare(nb,'es') : nb.localeCompare(na,'es');
   });
+
   var counter = document.getElementById('clientes-count');
   if (counter) counter.textContent = data.length + ' clienta' + (data.length!==1?'s':'');
+
   if (!data.length) {
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)">No hay clientes con esos filtros</div>';
     return;
   }
+
   grid.innerHTML = data.map(function(c){
     var activo = c.activo===true||c.activo==='TRUE';
     var telLimpio = (c.telefono||'').toString().replace(/\D/g,'');
     var telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54' + telLimpio) : '';
-    var abonoHtml = c.tipo_abono === 'NUEVA'
-      ? '<span class="badge nueva">NUEVA</span>'
-      : c.tipo_abono ? '<span class="badge activo" style="font-size:9px">' + c.tipo_abono + '</span>'
-      : '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
+
+    var abonoHtml = '';
+    if (c.tipo_abono === 'NUEVA') {
+      abonoHtml = '<span class="badge nueva">NUEVA</span>';
+    } else if (c.tipo_abono) {
+      abonoHtml = '<span class="badge activo" style="font-size:9px">' + c.tipo_abono + '</span>';
+    } else {
+      abonoHtml = '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
+    }
+
     var estadoHtml = activo
       ? '<span class="badge activo" style="font-size:9px">Activa</span>'
       : '<span class="badge inactivo" style="font-size:9px">Inactiva</span>';
-    var credHtml = (c.tipo_abono && c.tipo_abono !== 'NUEVA')
-      ? '<span style="font-size:11px;color:var(--gold)">' + (c.creditosRestantes === 'Infinito' ? '&#8734;' : (c.creditosRestantes ?? '-')) + ' cr&#233;d.</span>'
-      : '';
+
+    var credHtml = '';
+    if (c.tipo_abono && c.tipo_abono !== 'NUEVA') {
+      var cred = c.creditosRestantes === 'Infinito' ? '&#8734;' : (c.creditosRestantes ?? '-');
+      credHtml = '<span style="font-size:11px;color:var(--gold)">' + cred + ' cr&#233;d.</span>';
+    }
+
     var vencHtml = '';
     if (c.fechaVencimiento) {
       var fv = c.fechaVencimiento;
       var dias = Math.round((new Date(fv) - new Date(hoy)) / 86400000);
-      vencHtml = c.abonoVencido
-        ? '<div class="cliente-card-venc vencido">&#9888; Vencido ' + fmtFechaUI(fv) + '</div>'
-        : dias <= 7
-          ? '<div class="cliente-card-venc pronto">&#9679; Vence en ' + dias + 'd (' + fmtFechaUI(fv) + ')</div>'
-          : '<div class="cliente-card-venc">Vence: ' + fmtFechaUI(fv) + '</div>';
+      if (c.abonoVencido) {
+        vencHtml = '<div class="cliente-card-venc vencido">&#9888; Vencido ' + fmtFechaUI(fv) + '</div>';
+      } else if (dias <= 7) {
+        vencHtml = '<div class="cliente-card-venc pronto">&#9679; Vence en ' + dias + 'd (' + fmtFechaUI(fv) + ')</div>';
+      } else {
+        vencHtml = '<div class="cliente-card-venc">Vence: ' + fmtFechaUI(fv) + '</div>';
+      }
     }
+
     var proxHtml = c.totalReservas > 0
-      ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>' : '';
+      ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>'
+      : '';
+
     var msgWA = 'Hola ' + (c.nombre||'').split(' ')[0] + '! Te escribimos desde Studio PL.';
     var waLink = telWA
-      ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WA</a>'
+      ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WhatsApp</a>'
       : '';
+
     return '<div class="cliente-card" style="' + (!activo ? 'opacity:.6' : '') + '">' +
       '<div><div class="cliente-card-nombre">' + (c.nombre||'-') + '</div>' +
       '<div class="cliente-card-sub">' + (c.email||'-') + '</div>' +
@@ -1205,8 +1121,7 @@ function renderClientes() {
       '<div class="cliente-card-badges">' + estadoHtml + abonoHtml + credHtml + '</div>' +
       vencHtml + proxHtml +
       '<div class="cliente-card-acciones">' +
-        '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ficha</button>' +
-        '<button class="btn btn-gold btn-sm" onclick="abrirPago(\'' + c.id + '\')">&#36; Pago</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="abrirFichaCliente(\'' + c.id + '\')">Ver ficha</button>' +
         waLink +
       '</div></div>';
   }).join('');
@@ -1235,23 +1150,16 @@ async function verFicha(clienteId) {
   const nombre1 = c.nombre.split(' ')[0];
   const vencStr = c.fechaVencimiento ? fmtFechaUI(c.fechaVencimiento) : null;
 
-  // Proxima reserva - solo clases que aun no pasaron
+  // Proxima reserva
   let proxReservaStr = null;
   if (reservas && reservas.length) {
     const DIAS_ES = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
     const MESES_ES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
-    const ahoraMs2 = new Date().getTime();
-    const reservasFuturas2 = reservas.filter(function(r) {
-      const fc2 = r.fecha_clase ? String(r.fecha_clase).substring(0,10) : null;
-      if (!fc2) return false;
-      const horaRaw2 = r.horario && r.horario.hora ? String(r.horario.hora) : '23:59';
-      return new Date(fc2 + 'T' + horaRaw2 + ':00').getTime() > ahoraMs2;
-    });
-    if (reservasFuturas2.length) {
-      const pr = reservasFuturas2[0];
-      const fc = String(pr.fecha_clase).substring(0,10);
+    const pr = reservas[0]; // ya vienen ordenadas por fecha
+    const fc = pr.fecha_clase ? String(pr.fecha_clase).substring(0,10) : null;
+    if (fc) {
       const d = new Date(fc + 'T00:00:00');
-      const horaRaw = pr.horario && pr.horario.hora ? String(pr.horario.hora) : '';
+      const horaRaw = pr.horario?.hora ? String(pr.horario.hora) : '';
       const hora = horaRaw ? horaRaw.split(':')[0].padStart(2,'0') + ':' + (horaRaw.split(':')[1]||'00') : '';
       proxReservaStr = `${DIAS_ES[d.getDay()]} ${d.getDate()} de ${MESES_ES[d.getMonth()]}${hora ? ' a las ' + hora + ' hs' : ''}`;
     }
@@ -1271,22 +1179,22 @@ async function verFicha(clienteId) {
     {
       label: '&#128197; Recordatorio clase',
       texto: proxReservaStr
-        ? `Hola ${nombre1}! Te recordamos que tenes clase en Studio PL el ${proxReservaStr}. !Te esperamos!`
-        : `Hola ${nombre1}! Te recordamos que tenes clase proximamente en Studio PL. !Te esperamos!`
+        ? `Hola ${nombre1}! Te recordamos que tenes clase en Studio PL el ${proxReservaStr}. !Te esperamos! &#10024;`
+        : `Hola ${nombre1}! Te recordamos que tenes clase proximamente en Studio PL. !Te esperamos! &#10024;`
     },
     {
       label: '&#10060; Reservas canceladas',
       texto: vencStr
-        ? `Hola ${nombre1}! Tu abono vencio el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos`
-        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono vencio. Cuando quieras renovar, avisanos y te ayudamos`
+        ? `Hola ${nombre1}! Tu abono vencio el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos &#10024;`
+        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono vencio. Cuando quieras renovar, avisanos y te ayudamos &#10024;`
     },
     {
       label: '&#127881; Bienvenida',
-      texto: `Bienvenida al Studio PL, ${nombre1}! Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos aca.`
+      texto: `Bienvenida al Studio PL, ${nombre1}! &#127881; Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos aca.`
     },
     {
       label: '&#128221; Completar datos',
-      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. !Gracias! `
+      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. !Gracias! &#9989;`
     },
   ];
 
@@ -1323,16 +1231,10 @@ async function verFicha(clienteId) {
       <button class="btn btn-gold btn-sm" onclick="cerrarModal('modal-ficha');editarCliente('${c.id}')">Editar</button>
       <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha');abrirHorariosFijos('${c.id}')">Horarios fijos</button>
       <button class="btn btn-outline btn-sm" onclick="cerrarModal('modal-ficha')">Cerrar</button>
-    </div>    <div style="margin-top:24px">
+    </div>
+    <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">
       <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Historial de pagos</div>
-      ${pagos.length ? pagos.map(p => `
-        <div class="pago-row">
-          <div>
-            <div style="font-weight:500;font-size:13px">${p.plan || '-'}</div>
-            <div class="pago-tipo">${p.tipo || ''} &#183; ${p.fecha || ''}</div>
-          </div>
-          <div class="pago-monto">$${Number(p.monto||0).toLocaleString('es-AR')}</div>
-        </div>`).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin pagos registrados</div>'}
+      ${pagos.length ? pagos.map(p => '<div class="pago-row"><div><div style="font-weight:500;font-size:13px">' + (p.tipo_abono||p.tipoAbono||'-') + '</div><div class="pago-tipo">' + (p.nota||'') + ' ' + (p.fecha_pago||p.fecha||'') + '</div></div><div class="pago-monto">$' + Number(p.monto||0).toLocaleString('es-AR') + '</div></div>').join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin pagos registrados</div>'}
     </div>
     `;
 }
@@ -1436,21 +1338,34 @@ async function abrirPago(clienteId) {
 }
 
 async function guardarPago() {
-  const params = {
-    clienteId:        pagando_clienteId,
-    fechaPago:        document.getElementById('pago-fpago').value,
-    fechaVencimiento: document.getElementById('pago-fvenc').value,
-    tipoAbono:        document.getElementById('pago-abono').value || undefined,
-  };
-  if (!params.fechaVencimiento) return showModalMsg('pago-msg','La fecha de vencimiento es requerida','error');
-  const res = await api('adminEditarCliente', { id: pagando_clienteId, fecha_pago: params.fechaPago, fecha_vencimiento: params.fechaVencimiento, tipo_abono: params.tipoAbono });
-  if (res.ok) { cerrarModal('modal-pago'); cargarClientes(); cargarStats(); showModalMsg('pago-msg','',''); }
-  else showModalMsg('pago-msg', res.error, 'error');
+  var clienteId  = document.getElementById('modal-pago').getAttribute('data-cliente-id');
+  var tipoAbono  = document.getElementById('pago-abono').value;
+  var monto      = document.getElementById('pago-monto') ? document.getElementById('pago-monto').value : '0';
+  var tipoPago   = document.getElementById('pago-tipo') ? document.getElementById('pago-tipo').value : 'efectivo';
+  var fechaDesde = document.getElementById('pago-fpago').value;
+  var fechaHasta = document.getElementById('pago-fvenc').value;
+  var msg        = document.getElementById('pago-msg');
+  if (!clienteId || !tipoAbono || !fechaDesde || !fechaHasta) {
+    msg.innerHTML = '<div class="msg error">Completa todos los campos</div>';
+    return;
+  }
+  msg.innerHTML = '<div class="msg" style="color:var(--muted);display:flex;align-items:center;gap:8px"><div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div>&nbsp;Registrando pago...</div>';
+  var res = await api('adminRegistrarPago', {
+    clienteId:  clienteId,
+    tipoAbono:  tipoAbono,
+    monto:      monto || '0',
+    fechaDesde: fechaDesde,
+    fechaHasta: fechaHasta,
+    nota:       tipoPago
+  });
+  if (res.ok) {
+    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado correctamente</div>';
+    await cargarClientes();
+    setTimeout(function(){ cerrarModal('modal-pago'); }, 1500);
+  } else {
+    msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al registrar') + '</div>';
+  }
 }
-
-// &#9472;&#9472; HORARIOS FIJOS &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
-let horariosClienteId = null;
-
 async function abrirHorariosFijos(clienteId) {
   horariosClienteId = clienteId;
   const c = todosClientes.find(c=>c.id===clienteId);
@@ -1819,27 +1734,12 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </script>
 <!-- MODAL PAGO -->
 <div class="modal-overlay" id="modal-pago">
-  <div class="modal" style="max-width:460px">
-    <div class="modal-title" id="pago-titulo">Registrar pago</div>
-    <div id="pago-clienteNombre" style="font-size:11px;color:var(--muted);margin-bottom:20px;letter-spacing:1px;text-transform:uppercase"></div>
+  <div class="modal">
+    <h2 class="modal-title" id="pago-titulo">Registrar pago</h2>
     <div id="pago-msg"></div>
     <div class="form-group">
-      <label>Plan pagado</label>
-      <select id="pago-abono"><option value="">Cargando...</option></select>
-    </div>
-    <div class="form-group">
-      <label>Monto ($)</label>
-      <input type="number" id="pago-monto" placeholder="0" min="0" step="100">
-    </div>
-    <div class="form-group">
-      <label>Tipo de pago</label>
-      <select id="pago-tipo">
-        <option value="efectivo">Efectivo</option>
-        <option value="transferencia">Transferencia</option>
-        <option value="debito">D&#233;bito</option>
-        <option value="credito">Cr&#233;dito</option>
-        <option value="otro">Otro</option>
-      </select>
+      <label>Plan / Abono</label>
+      <select id="pago-abono"><option value="">Mantener actual</option></select>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Fecha de pago</label><input type="date" id="pago-fpago"></div>
@@ -1847,21 +1747,15 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
         <label>Vencimiento</label>
         <input type="date" id="pago-fvenc">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(15)" type="button">15d</button>
           <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
-          <button class="btn btn-outline btn-sm" onclick="setVencPago(60)" type="button">2 meses</button>
           <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
         </div>
       </div>
     </div>
-    <div class="form-group">
-      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-        <input type="checkbox" id="pago-enviar-email" checked style="width:auto">
-        Enviar comprobante por email
-      </label>
-    </div>
     <div class="modal-btns">
-      <button class="btn btn-gold" onclick="guardarPago()">Registrar pago</button>
       <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
+      <button class="btn btn-gold" onclick="guardarPago()">Guardar pago</button>
     </div>
   </div>
 </div>
@@ -1912,8 +1806,8 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <input type="date" id="alta-fvenc">
       <div style="display:flex;gap:6px;margin-top:6px">
         <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(15)" type="button">15 d&#237;as</button>
-        <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(30)" type="button">1 mes</button>
-        <button class="btn btn-outline btn-sm" onclick="setVencAltaDesde(90)" type="button">3 meses</button>
+        <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
+        <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
       </div>
     </div>
 
@@ -2038,6 +1932,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.0</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.1</div>
 </body>
 </html>
