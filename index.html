@@ -1295,6 +1295,7 @@ async function abrirPago(clienteId) {
   pagando_clienteId = clienteId;
   const c = todosClientes.find(c=>c.id===clienteId);
   if (!todosAbonos.length) { const res = await api('adminGetAbonos'); if (res.ok) todosAbonos = res.abonos; }
+  document.getElementById('modal-pago').setAttribute('data-cliente-id', clienteId);
   document.getElementById('pago-titulo').textContent = 'Registrar pago - ' + (c?.nombre||'');
   document.getElementById('pago-msg').innerHTML = '';
   // Fecha hoy
@@ -1306,9 +1307,10 @@ async function abrirPago(clienteId) {
   // Abono actual seleccionado
   const sel = document.getElementById('pago-abono');
   sel.innerHTML = '<option value="">Mantener actual</option>' +
-    todosAbonos.filter(a=>a.activo===true||a.activo==='TRUE').map(a=>
-      `<option value="${a.nombre}" ${c?.tipo_abono===a.nombre?'selected':''}>${a.nombre}</option>`
-    ).join('');
+    todosAbonos.filter(function(a){return a.activo===true||a.activo==='TRUE';}).map(function(a){
+      var sel_flag = (c && c.tipo_abono===a.nombre) ? ' selected' : '';
+      return '<option value="'+a.nombre+'"'+sel_flag+'>'+a.nombre+'</option>';
+    }).join('');
   abrirModal('modal-pago');
 }
 
@@ -1320,7 +1322,7 @@ async function guardarPago() {
   var fechaDesde = document.getElementById('pago-fpago').value;
   var fechaHasta = document.getElementById('pago-fvenc').value;
   var msg        = document.getElementById('pago-msg');
-  if (!clienteId || !tipoAbono || !fechaDesde || !fechaHasta) {
+  if (!clienteId || !fechaDesde || !fechaHasta) {
     msg.innerHTML = '<div class="msg error">Completa todos los campos</div>';
     return;
   }
@@ -1927,6 +1929,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.3</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.4</div>
 </body>
 </html>
