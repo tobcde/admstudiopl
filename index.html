@@ -1709,12 +1709,26 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </script>
 <!-- MODAL PAGO -->
 <div class="modal-overlay" id="modal-pago">
-  <div class="modal">
-    <h2 class="modal-title" id="pago-titulo">Registrar pago</h2>
+  <div class="modal" style="max-width:460px">
+    <div class="modal-title" id="pago-titulo">Registrar pago</div>
     <div id="pago-msg"></div>
     <div class="form-group">
-      <label>Plan / Abono</label>
-      <select id="pago-abono"><option value="">Mantener actual</option></select>
+      <label>Plan pagado</label>
+      <select id="pago-abono"><option value="">Cargando...</option></select>
+    </div>
+    <div class="form-group">
+      <label>Monto ($)</label>
+      <input type="number" id="pago-monto" placeholder="0" min="0" step="100">
+    </div>
+    <div class="form-group">
+      <label>Tipo de pago</label>
+      <select id="pago-tipo">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="debito">D&#233;bito</option>
+        <option value="credito">Cr&#233;dito</option>
+        <option value="otro">Otro</option>
+      </select>
     </div>
     <div class="form-row">
       <div class="form-group"><label>Fecha de pago</label><input type="date" id="pago-fpago"></div>
@@ -1722,15 +1736,21 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
         <label>Vencimiento</label>
         <input type="date" id="pago-fvenc">
         <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-          <button class="btn btn-outline btn-sm" onclick="setVencPago(15)" type="button">15d</button>
           <button class="btn btn-outline btn-sm" onclick="setVencPago(30)" type="button">1 mes</button>
+          <button class="btn btn-outline btn-sm" onclick="setVencPago(60)" type="button">2 meses</button>
           <button class="btn btn-outline btn-sm" onclick="setVencPago(90)" type="button">3 meses</button>
         </div>
       </div>
     </div>
+    <div class="form-group">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="pago-enviar-email" checked style="width:auto">
+        Enviar comprobante por email
+      </label>
+    </div>
     <div class="modal-btns">
+      <button class="btn btn-gold" onclick="guardarPago()">Registrar pago</button>
       <button class="btn btn-outline" onclick="cerrarModal('modal-pago')">Cancelar</button>
-      <button class="btn btn-gold" onclick="guardarPago()">Guardar pago</button>
     </div>
   </div>
 </div>
@@ -1907,6 +1927,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.2</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.3</div>
 </body>
 </html>
