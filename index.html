@@ -1107,8 +1107,7 @@ async function verFicha(clienteId) {
   document.getElementById('ficha-content').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)"><div class="spinner"></div></div>';
   abrirModal('modal-ficha');
   const res = await api('adminGetFicha', { clienteId });
-  const resPagos = await api('adminGetPagos', { clienteId });
-  const pagos = (resPagos.ok && resPagos.pagos) ? resPagos.pagos : [];
+  const pagos = (res.pagos && res.pagos.length) ? res.pagos : [];
   if (!res.ok) { document.getElementById('ficha-content').innerHTML = `<p style="color:var(--error)">${res.error}</p>`; return; }
   const c = res.cliente, p = res.parq, reservas = res.reservas || [];
   const activo = c.activo===true||c.activo==='TRUE';
@@ -1929,6 +1928,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.7</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.8</div>
 </body>
 </html>
