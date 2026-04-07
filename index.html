@@ -337,12 +337,7 @@
     <div id="login-error"></div>
     <div class="form-group"><label>Contrase&#241;a</label><input type="password" id="admin-pass" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
     <button class="btn-primary" onclick="adminLogin()">Ingresar</button>
-      <div id="login-bio-sep" style="display:none;margin:14px 0;display:none;align-items:center;gap:10px">
-        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-        <span style="font-size:9px;letter-spacing:2px;color:var(--muted)">O</span>
-        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-      </div>
-      <button class="btn-primary" onclick="loginBioAdmin()" id="btn-bio-admin" style="display:none;margin-top:0;background:none;border:1px solid var(--gold);color:var(--gold-light)">&#128274; Huella / Face ID</button>
+      <button class="btn-bio" onclick="loginBioAdmin()" id="btn-bio-admin" style="display:none">&#128274; Huella / Face ID</button>
   </div>
 </div>
 
@@ -757,7 +752,7 @@ async function loginBioAdmin() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
-  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; var sep=document.getElementById('login-bio-sep'); if(sep) sep.style.display='flex'; }
+  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
 });
 
 async function api(action, params={}) {
@@ -1201,7 +1196,7 @@ async function verFicha(clienteId) {
     <div style="margin-bottom:20px">
       ${row('Email', c.email)} ${row('Telefono', c.telefono||'-')} ${row('DNI', c.dni||'-')}
       ${row('Abono', c.tipo_abono||'-')} ${row('Creditos semana', String(c.creditosRestantes))}
-      ${row('Fecha pago', c.fecha_pago||'-')}
+      ${row('Ultima fecha de pago', (function(){ var fp = (pagos && pagos.length) ? (pagos[0].fecha_pago||pagos[0].fecha||'') : ''; if (!fp) fp = c.fechaPago||c.fecha_pago||''; if (fp) { try { var d = new Date(fp); if (!isNaN(d.getTime())) return fmtFechaUI(d.toISOString().split('T')[0]); } catch(e){} return fp; } return '-'; })() )}
       ${row('Vencimiento', c.fechaVencimiento ? (c.abonoVencido ? '<span style="color:#e08070">'+fmtFechaUI(c.fechaVencimiento)+' (VENCIDO)</span>' : fmtFechaUI(c.fechaVencimiento)) : '-')}
       ${horasFijas ? row('Horarios fijos', horasFijas) : ''}
     </div>
