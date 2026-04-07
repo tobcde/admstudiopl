@@ -737,7 +737,7 @@ async function abrirPago(clienteId) {
   // Cargar abonos si no estan (antes de asignar _pagoClienteId)
   if (!todosAbonos || !todosAbonos.length) await cargarAbonos();
   // Asignar DESPUES del await para que no se pierda
-  _pagoClienteId = clienteId;
+  document.getElementById('modal-pago').setAttribute('data-cliente-id', clienteId);
   // Nombre cliente
   var el = document.getElementById('pago-clienteNombre');
   if (el) el.textContent = c.nombre;
@@ -762,21 +762,20 @@ async function abrirPago(clienteId) {
 }
 
 async function guardarPago() {
-  var clienteId  = _pagoClienteId;
+  var clienteId  = document.getElementById('modal-pago').getAttribute('data-cliente-id');
   var tipoAbono  = document.getElementById('pago-abono').value;
   var monto      = document.getElementById('pago-monto') ? document.getElementById('pago-monto').value : '0';
   var tipoPago   = document.getElementById('pago-tipo') ? document.getElementById('pago-tipo').value : 'efectivo';
   var fechaDesde = document.getElementById('pago-fpago').value;
   var fechaHasta = document.getElementById('pago-fvenc').value;
-  var enviarEmail = document.getElementById('pago-enviar-email') ? document.getElementById('pago-enviar-email').checked : true;
   var msg        = document.getElementById('pago-msg');
 
-  if (!tipoAbono || !fechaDesde || !fechaHasta) {
-    msg.innerHTML = '<div class="msg error">Completa plan, fecha y vencimiento</div>';
+  if (!clienteId || !tipoAbono || !fechaDesde || !fechaHasta) {
+    msg.innerHTML = '<div class="msg error">Completa todos los campos</div>';
     return;
   }
 
-  msg.innerHTML = '<div class="msg" style="color:var(--muted)">Guardando...</div>';
+  msg.innerHTML = '<div class="msg" style="color:var(--muted);display:flex;align-items:center;gap:8px"><div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0"></div>&nbsp;Registrando pago...</div>';
 
   var res = await api('adminRegistrarPago', {
     clienteId:  clienteId,
@@ -788,22 +787,12 @@ async function guardarPago() {
   });
 
   if (res.ok) {
-    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado' + (enviarEmail ? ' - enviando comprobante...' : '') + '</div>';
-    if (enviarEmail) {
-      // El GAS ya envia el email automaticamente en adminRegistrarPago
-    }
+    msg.innerHTML = '<div class="msg success">&#10003; Pago registrado correctamente</div>';
     await cargarClientes();
     setTimeout(function(){ cerrarModal('modal-pago'); }, 1500);
   } else {
-    msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al guardar') + '</div>';
+    msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al registrar') + '</div>';
   }
-}
-// == FIN PAGOS ==============================================================
-
-
-// == BIOMETRICO ADMIN (WebAuthn) ============================================
-function bioAdminDisponible() {
-  return !!(window.PublicKeyCredential && navigator.credentials);
 }
 async function registrarBioAdmin() {
   if (!bioAdminDisponible()) { alert('Este dispositivo no soporta biometrico'); return; }
@@ -866,6 +855,7 @@ async function loginBioAdmin() {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
+  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
   if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; }
 });
 
@@ -2048,6 +2038,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v2.9</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.0</div>
 </body>
 </html>
