@@ -1038,9 +1038,7 @@ function renderClientes() {
   var filtroAbono = document.getElementById('filtro-abono')?.value || '';
   var grid = document.getElementById('clientes-tbody');
   var hoy = new Date().toLocaleDateString('sv');
-
   var data = todosClientes.slice();
-
   if (buscar) data = data.filter(function(c){
     return (c.nombre||'').toLowerCase().includes(buscar) ||
            (c.email||'').toLowerCase().includes(buscar) ||
@@ -1052,76 +1050,53 @@ function renderClientes() {
   if (filtroEst === 'sinabono') data = data.filter(function(c){ return !c.tipo_abono || c.tipo_abono==='NUEVA'; });
   if (filtroEst === 'nueva')    data = data.filter(function(c){ return c.tipo_abono==='NUEVA'; });
   if (filtroAbono) data = data.filter(function(c){ return c.tipo_abono === filtroAbono; });
-
   data.sort(function(a,b){
     var na=(a.nombre||'').toLowerCase(), nb=(b.nombre||'').toLowerCase();
     return ordenAsc ? na.localeCompare(nb,'es') : nb.localeCompare(na,'es');
   });
-
   var counter = document.getElementById('clientes-count');
   if (counter) counter.textContent = data.length + ' clienta' + (data.length!==1?'s':'');
-
   if (!data.length) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)">No hay clientes con esos filtros</div>';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--muted)">No hay clientes</div>';
     return;
   }
-
   grid.innerHTML = data.map(function(c){
     var activo = c.activo===true||c.activo==='TRUE';
     var telLimpio = (c.telefono||'').toString().replace(/\D/g,'');
-    var telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54' + telLimpio) : '';
-
-    var abonoHtml = '';
-    if (c.tipo_abono === 'NUEVA') {
-      abonoHtml = '<span class="badge nueva">NUEVA</span>';
-    } else if (c.tipo_abono) {
-      abonoHtml = '<span class="badge activo" style="font-size:9px">' + c.tipo_abono + '</span>';
-    } else {
-      abonoHtml = '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
-    }
-
+    var telWA = telLimpio ? (telLimpio.startsWith('54') ? telLimpio : '54'+telLimpio) : '';
+    var abonoHtml = c.tipo_abono==='NUEVA'
+      ? '<span class="badge nueva">NUEVA</span>'
+      : c.tipo_abono ? '<span class="badge activo" style="font-size:9px">'+c.tipo_abono+'</span>'
+      : '<span style="color:var(--muted);font-size:10px">Sin abono</span>';
     var estadoHtml = activo
       ? '<span class="badge activo" style="font-size:9px">Activa</span>'
       : '<span class="badge inactivo" style="font-size:9px">Inactiva</span>';
-
-    var credHtml = '';
-    if (c.tipo_abono && c.tipo_abono !== 'NUEVA') {
-      var cred = c.creditosRestantes === 'Infinito' ? '&#8734;' : (c.creditosRestantes ?? '-');
-      credHtml = '<span style="font-size:11px;color:var(--gold)">' + cred + ' cr&#233;d.</span>';
-    }
-
+    var credHtml = (c.tipo_abono && c.tipo_abono!=='NUEVA')
+      ? '<span style="font-size:11px;color:var(--gold)">'+(c.creditosRestantes==='Infinito'?'&#8734;':(c.creditosRestantes??'-'))+' cr&#233;d.</span>' : '';
     var vencHtml = '';
     if (c.fechaVencimiento) {
       var fv = c.fechaVencimiento;
-      var dias = Math.round((new Date(fv) - new Date(hoy)) / 86400000);
-      if (c.abonoVencido) {
-        vencHtml = '<div class="cliente-card-venc vencido">&#9888; Vencido ' + fmtFechaUI(fv) + '</div>';
-      } else if (dias <= 7) {
-        vencHtml = '<div class="cliente-card-venc pronto">&#9679; Vence en ' + dias + 'd (' + fmtFechaUI(fv) + ')</div>';
-      } else {
-        vencHtml = '<div class="cliente-card-venc">Vence: ' + fmtFechaUI(fv) + '</div>';
-      }
+      var dias = Math.round((new Date(fv)-new Date(hoy))/86400000);
+      vencHtml = c.abonoVencido
+        ? '<div class="cliente-card-venc vencido">&#9888; Vencido '+fmtFechaUI(fv)+'</div>'
+        : dias<=7 ? '<div class="cliente-card-venc pronto">&#9679; Vence en '+dias+'d ('+fmtFechaUI(fv)+')</div>'
+        : '<div class="cliente-card-venc">Vence: '+fmtFechaUI(fv)+'</div>';
     }
-
-    var proxHtml = c.totalReservas > 0
-      ? '<div style="font-size:10px;color:var(--muted)">' + c.totalReservas + ' reserva' + (c.totalReservas!==1?'s':'') + ' activa' + (c.totalReservas!==1?'s':'') + '</div>'
-      : '';
-
-    var msgWA = 'Hola ' + (c.nombre||'').split(' ')[0] + '! Te escribimos desde Studio PL.';
+    var msgWA = 'Hola '+(c.nombre||'').split(' ')[0]+'! Te escribimos desde Studio PL.';
     var waLink = telWA
-      ? '<a href="https://wa.me/' + telWA + '?text=' + encodeURIComponent(msgWA) + '" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WhatsApp</a>'
+      ? '<a href="https://wa.me/'+telWA+'?text='+encodeURIComponent(msgWA)+'" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WA</a>'
       : '';
-
-    return '<div class="cliente-card" style="' + (!activo ? 'opacity:.6' : '') + '">' +
-      '<div><div class="cliente-card-nombre">' + (c.nombre||'-') + '</div>' +
-      '<div class="cliente-card-sub">' + (c.email||'-') + '</div>' +
-      (c.dni ? '<div class="cliente-card-sub">DNI ' + c.dni + '</div>' : '') +
-      (c.telefono ? '<div class="cliente-card-sub">Tel ' + c.telefono + '</div>' : '') +
+    return '<div class="cliente-card" style="'+(activo?'':'opacity:.6')+'">' +
+      '<div><div class="cliente-card-nombre">'+(c.nombre||'-')+'</div>' +
+      '<div class="cliente-card-sub">'+(c.email||'-')+'</div>' +
+      (c.dni?'<div class="cliente-card-sub">DNI '+c.dni+'</div>':'') +
+      (c.telefono?'<div class="cliente-card-sub">Tel '+c.telefono+'</div>':'') +
       '</div>' +
-      '<div class="cliente-card-badges">' + estadoHtml + abonoHtml + credHtml + '</div>' +
-      vencHtml + proxHtml +
+      '<div class="cliente-card-badges">'+estadoHtml+abonoHtml+credHtml+'</div>' +
+      vencHtml +
       '<div class="cliente-card-acciones">' +
-        '<button class="btn btn-outline btn-sm" onclick="abrirFichaCliente(\'' + c.id + '\')">Ver ficha</button>' +
+        '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ficha</button>' +
+        '<button class="btn btn-gold btn-sm" onclick="abrirPago(\'' + c.id + '\')">&#36; Pago</button>' +
         waLink +
       '</div></div>';
   }).join('');
@@ -1932,6 +1907,6 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
 </div>
 
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.1</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.2</div>
 </body>
 </html>
