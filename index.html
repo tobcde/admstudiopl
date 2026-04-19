@@ -1533,9 +1533,14 @@ async function verFicha(clienteId) {
 // &#9472;&#9472; CLIENTES CRUD &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
 let todosAbonos = [];
 
+let _editCliente = null; // Guarda el cliente actualmente en edición — source of truth para eliminar
 async function editarCliente(id) {
   const c = todosClientes.find(c=>c.id===id);
-  if (!c) return;
+  if (!c) {
+    await uiAlert('No se encontr\u00f3 la clienta en la lista. Refresc\u00e1 y prob\u00e1 de nuevo.', {title:'Error'});
+    return;
+  }
+  _editCliente = c; // referencia directa, no depende de lectura del DOM
   if (!todosAbonos.length) { const res = await api('adminGetAbonos'); if (res.ok) todosAbonos = res.abonos; }
   document.getElementById('c-id').value        = c.id;
   document.getElementById('c-nombre').value    = c.nombre||'';
@@ -1575,16 +1580,22 @@ async function guardarCliente() {
 
 
 async function confirmarEliminarCliente() {
-  const id = document.getElementById('c-id').value;
-  const nombre = document.getElementById('c-nombre').value;
+  // Usa la variable global (más robusto que leer el DOM)
+  const c = _editCliente;
+  const id = c?.id || document.getElementById('c-id').value;
+  const nombre = c?.nombre || document.getElementById('c-nombre').value;
   if (!id) {
     await uiAlert('No se pudo obtener el ID de la clienta. Cerr\u00e1 este modal y volv\u00e9 a abrir la ficha.', {title:'Error'});
     return;
   }
   if (!await uiConfirm('Se borrar\u00e1n todos sus datos, reservas y pagos. Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + (nombre || 'esta clienta') + '?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarCliente', {id, confirmar:'SI'});
-  if (res.ok) { cerrarModal('modal-cliente'); cargarClientes(); cargarStats(); }
-  else showModalMsg('modal-cliente-msg', res.error, 'error');
+  if (res.ok) {
+    _editCliente = null;
+    cerrarModal('modal-cliente');
+    cargarClientes();
+    cargarStats();
+  } else showModalMsg('modal-cliente-msg', res.error, 'error');
 }
 async function eliminarCliente(id, nombre) {
   if (!await uiConfirm('Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
