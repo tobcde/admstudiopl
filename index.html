@@ -211,27 +211,70 @@
       .stat-value { font-size: 32px; margin-bottom: 4px; }
       .stat-label { font-size: 9px; letter-spacing: 1px; }
 
-      /* Tablas scrolleables */
+      /* Tablas → cards stacked en mobile (sin scroll horizontal) */
       .table-wrap {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        border-radius: 2px;
+        background: transparent;
+        border: none;
+        overflow: visible;
       }
-      table { min-width: 480px; }
-      th { padding: 10px 10px; font-size: 9px; }
-      td { padding: 10px 10px; font-size: 12px; }
-
-      /* Botones en tabla mas grandes para touch */
+      table, thead, tbody, tr, td { display: block; width: 100%; }
+      thead { display: none; }
+      table { min-width: 0; }
+      tbody tr {
+        background: var(--dark2);
+        border: 1px solid var(--border);
+        border-radius: 2px;
+        padding: 10px 14px;
+        margin-bottom: 10px;
+      }
+      tr:hover td { background: transparent; }
+      tbody td {
+        padding: 7px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+      }
+      tbody td:last-child { border-bottom: none; padding-top: 10px; }
+      tbody td::before {
+        content: attr(data-label);
+        font-size: 9px;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        color: var(--muted);
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+      tbody td[data-label=""]::before,
+      tbody td:not([data-label])::before { display: none; }
+      /* Celdas "acciones" con múltiples botones — full width justificado */
+      tbody td[data-label="Acciones"],
+      tbody td.acciones {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      tbody td[data-label="Acciones"]::before,
+      tbody td.acciones::before { width: 100%; margin-bottom: 4px; }
       .btn-sm {
         padding: 7px 10px;
         font-size: 9px;
         min-height: 34px;
       }
-      td > div[style*="display:flex"],
-      td > div[style*="gap"] {
-        flex-wrap: wrap;
-        gap: 4px !important;
+      /* Filas vacías / loading no se estilan como cards */
+      tbody tr.empty-row {
+        background: transparent;
+        border: none;
+        padding: 20px 0;
       }
+      tbody tr.empty-row td {
+        padding: 0;
+        text-align: center;
+        color: var(--muted);
+        justify-content: center;
+      }
+      tbody tr.empty-row td::before { display: none; }
 
       /* Modales bottom sheet */
       .modal-overlay {
@@ -305,8 +348,13 @@
     .clientes-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:4px 0 24px; }
     @media(max-width:1100px){ .clientes-grid { grid-template-columns:repeat(2,1fr); } }
     @media(max-width:640px){  .clientes-grid { grid-template-columns:1fr; } }
-    .cliente-card { background:var(--dark2); border:1px solid var(--border); padding:18px 20px; display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .2s; }
+    .cliente-card { background:var(--dark2); border:1px solid var(--border); border-left:4px solid var(--border); padding:18px 20px 18px 16px; display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .2s; }
     .cliente-card:hover { border-color:var(--gold); }
+    .cliente-card.st-ok      { border-left-color:#5a8a6a; }   /* abono al día */
+    .cliente-card.st-pronto  { border-left-color:#c9a96e; }   /* vence en ≤7d */
+    .cliente-card.st-vencido { border-left-color:#e08070; }   /* abono vencido */
+    .cliente-card.st-sin     { border-left-color:#555; }       /* sin abono */
+    .cliente-card.st-nueva   { border-left-color:#4a90c7; }    /* cuenta nueva */
     .cliente-card-nombre { font-size:14px; font-weight:600; color:var(--gold-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cliente-card-sub { font-size:10px; color:var(--muted); letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cliente-card-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
@@ -721,8 +769,10 @@ try {
   firebase.appCheck().activate('6LfNrL4sAAAAAG4xOEl1pDdX9EPEm8Jr4umEpTvU', true);
 } catch (e) { console.warn('App Check no pudo iniciar:', e.message); }
 
-// Persistencia local: la sesión sobrevive a cerrar el browser
-firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+// Persistencia SESSION (sessionStorage, tab-scoped): evita que otro tab del mismo
+// origen (ej. app cliente en github.io) sobrescriba la sesión del admin.
+// Trade-off: si cierra el tab, tiene que loguearse de nuevo. Para el admin vale la pena.
+firebase.auth().setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(() => {});
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 const CF_BASE = 'https://us-central1-studiopl-2f662.cloudfunctions.net';
@@ -1141,13 +1191,13 @@ function renderHorariosTabla() {
   const sorted = [...todosHorarios].sort((a,b)=>((orden[a.dia]||9)-(orden[b.dia]||9))||a.hora.localeCompare(b.hora));
   tb.innerHTML = sorted.map(h=>`
     <tr>
-      <td>${h.dia}</td>
-      <td style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300">${fmtHoraUI(h.hora)}</td>
-      <td>${h.instructor}</td>
-      <td>${h.duracion} min</td>
-      <td>${h.cupos_totales}</td>
-      <td><span class="badge ${h.activo===true||h.activo==='TRUE'?'activo':'inactivo'}">${h.activo===true||h.activo==='TRUE'?'Activo':'Inactivo'}</span></td>
-      <td style="display:flex;gap:6px">
+      <td data-label="D\u00eda">${h.dia}</td>
+      <td data-label="Hora" style="font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:300">${fmtHoraUI(h.hora)}</td>
+      <td data-label="Instructor/a">${h.instructor}</td>
+      <td data-label="Duraci\u00f3n">${h.duracion} min</td>
+      <td data-label="Cupos">${h.cupos_totales}</td>
+      <td data-label="Estado"><span class="badge ${h.activo===true||h.activo==='TRUE'?'activo':'inactivo'}">${h.activo===true||h.activo==='TRUE'?'Activo':'Inactivo'}</span></td>
+      <td data-label="Acciones" class="acciones" style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="editarHorario('${h.id}')">Editar</button>
         ${(h.activo===true||h.activo==='TRUE')
           ? `<button class="btn btn-danger btn-sm" onclick="desactivarHorario('${h.id}')">Desactivar</button>`
@@ -1232,12 +1282,12 @@ function renderReservas() {
       ? `<button class="btn btn-danger btn-sm" onclick="cancelarReservaAdmin('${r.id}')">Cancelar</button>`
       : '<span style="color:var(--muted);font-size:11px">-</span>';
     return `<tr>
-      <td>${fecha}</td>
-      <td>${h?`${fmtHoraUI(h.hora)} &#183; ${h.dia}`:r.horario_id}</td>
-      <td>${c?c.nombre:r.cliente_id}</td>
-      <td style="color:var(--muted);font-size:12px">${c?c.email:''}</td>
-      <td><span class="badge ${badgeCls}">${badgeTxt}</span></td>
-      <td>${accionBtn}</td>
+      <td data-label="Fecha">${fecha}</td>
+      <td data-label="Clase">${h?`${fmtHoraUI(h.hora)} &#183; ${h.dia}`:r.horario_id}</td>
+      <td data-label="Cliente">${c?c.nombre:r.cliente_id}</td>
+      <td data-label="Email" style="color:var(--muted);font-size:12px">${c?c.email:''}</td>
+      <td data-label="Estado"><span class="badge ${badgeCls}">${badgeTxt}</span></td>
+      <td data-label="Acciones" class="acciones">${accionBtn}</td>
     </tr>`;
   }).join('');
 }
@@ -1336,7 +1386,18 @@ function renderClientes() {
     var waLink = telWA
       ? '<a href="https://wa.me/'+telWA+'?text='+encodeURIComponent(msgWA)+'" target="_blank" class="btn btn-sm" style="background:#25d366;border-color:#25d366;color:#fff;font-size:10px">WA</a>'
       : '';
-    return '<div class="cliente-card" style="'+(activo?'':'opacity:.6')+'">' +
+    // Clase de color según estado del abono
+    var st = 'st-sin';
+    if (c.tipo_abono === 'NUEVA') st = 'st-nueva';
+    else if (c.abonoVencido) st = 'st-vencido';
+    else if (c.tipo_abono) {
+      st = 'st-ok';
+      if (c.fechaVencimiento) {
+        var diasV = Math.round((new Date(c.fechaVencimiento)-new Date(hoy))/86400000);
+        if (diasV <= 7 && diasV >= 0) st = 'st-pronto';
+      }
+    }
+    return '<div class="cliente-card '+st+'" style="'+(activo?'':'opacity:.6')+'">' +
       '<div><div class="cliente-card-nombre">'+(c.nombre||'-')+'</div>' +
       '<div class="cliente-card-sub">'+(c.email||'-')+'</div>' +
       (c.dni?'<div class="cliente-card-sub">DNI '+c.dni+'</div>':'') +
@@ -1458,7 +1519,7 @@ async function verFicha(clienteId) {
     </div>
     <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px">
       <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px">Historial de pagos</div>
-      ${pagos.length ? pagos.map(p => { var fp = p.fecha_pago||p.fecha||''; try { if(fp) fp = new Date(fp).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch(e){} var tipo = p.nota||''; var plan = p.tipo_abono||p.tipoAbono||'-'; var monto = '$' + Number(p.monto||0).toLocaleString('es-AR'); return '<div class="pago-row"><div><div style="font-weight:500;font-size:13px">' + plan + '</div><div class="pago-tipo">' + (tipo?tipo+' &middot; ':'') + fp + '</div></div><div class="pago-monto">' + monto + '</div></div>'; }).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin pagos registrados</div>'}
+      ${pagos.length ? pagos.map(p => { var fp = p.fecha_pago||p.fecha||''; fp = fp ? fmtFechaUI(fp) : ''; var tipo = p.nota||''; var plan = p.tipo_abono||p.tipoAbono||'-'; var monto = '$' + Number(p.monto||0).toLocaleString('es-AR'); return '<div class="pago-row"><div><div style="font-weight:500;font-size:13px">' + plan + '</div><div class="pago-tipo">' + (tipo?tipo+' &middot; ':'') + fp + '</div></div><div class="pago-monto">' + monto + '</div></div>'; }).join('') : '<div style="font-size:12px;color:var(--muted);padding:8px 0">Sin pagos registrados</div>'}
     </div>
     `;
 }
@@ -1510,7 +1571,11 @@ async function guardarCliente() {
 async function confirmarEliminarCliente() {
   const id = document.getElementById('c-id').value;
   const nombre = document.getElementById('c-nombre').value;
-  if (!await uiConfirm('Se borrar\u00e1n todos sus datos, reservas y pagos. Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
+  if (!id) {
+    await uiAlert('No se pudo obtener el ID de la clienta. Cerr\u00e1 este modal y volv\u00e9 a abrir la ficha.', {title:'Error'});
+    return;
+  }
+  if (!await uiConfirm('Se borrar\u00e1n todos sus datos, reservas y pagos. Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + (nombre || 'esta clienta') + '?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarCliente', {id, confirmar:'SI'});
   if (res.ok) { cerrarModal('modal-cliente'); cargarClientes(); cargarStats(); }
   else showModalMsg('modal-cliente-msg', res.error, 'error');
@@ -1645,11 +1710,11 @@ function renderAbonos() {
     const activo = a.activo===true||a.activo==='TRUE';
     const clases = parseInt(a.clases_semana)>=999 ? '<span style="font-size:18px">999</span> (ilimitado)' : `${a.clases_semana} clase${parseInt(a.clases_semana)!==1?'s':''}/semana`;
     return `<tr>
-      <td style="font-weight:500">${a.nombre}</td>
-      <td style="color:var(--gold)">${clases}</td>
-      <td style="color:var(--muted);font-size:12px">${a.descripcion||'-'}</td>
-      <td><span class="badge ${activo?'activo':'inactivo'}">${activo?'Activo':'Inactivo'}</span></td>
-      <td style="display:flex;gap:8px">
+      <td data-label="Nombre" style="font-weight:500">${a.nombre}</td>
+      <td data-label="Clases" style="color:var(--gold)">${clases}</td>
+      <td data-label="Descripci\u00f3n" style="color:var(--muted);font-size:12px">${a.descripcion||'-'}</td>
+      <td data-label="Estado"><span class="badge ${activo?'activo':'inactivo'}">${activo?'Activo':'Inactivo'}</span></td>
+      <td data-label="Acciones" class="acciones" style="display:flex;gap:8px">
         <button class="btn btn-outline btn-sm" onclick="editarAbono('${a.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="eliminarAbono('${a.id}')">Eliminar</button>
       </td>
@@ -1931,10 +1996,10 @@ async function cargarFijos() {
     const dia = h ? h.dia : '-';
     const hora = h ? h.hora : '-';
     return `<tr>
-      <td style="font-weight:500">${nombreCli}</td>
-      <td>${dia}</td>
-      <td style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300">${hora}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="quitarFijo('${f.id}')">Quitar</button></td>
+      <td data-label="Clienta" style="font-weight:500">${nombreCli}</td>
+      <td data-label="D\u00eda">${dia}</td>
+      <td data-label="Hora" style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300">${hora}</td>
+      <td data-label="Acciones" class="acciones"><button class="btn btn-danger btn-sm" onclick="quitarFijo('${f.id}')">Quitar</button></td>
     </tr>`;
   }).join('');
 }
