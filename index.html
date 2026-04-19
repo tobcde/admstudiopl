@@ -1707,6 +1707,18 @@ async function cargarAbonos() {
   if (!res.ok) return;
   todosAbonos = res.abonos;
   renderAbonos();
+  // Re-render clientes si ya estaban cargados: ahora tenemos el cache de abonos
+  // para computar creditosRestantes correctamente.
+  if (todosClientes.length) {
+    todosClientes.forEach(c => {
+      const abono = todosAbonos.find(a => a.nombre === c.tipoAbono);
+      if (!abono) { c.creditosRestantes = c.tipoAbono ? '-' : ''; return; }
+      const cs = Number(abono.clasesSemana || abono.clases_semana || 0);
+      if (cs >= 999) { c.creditosRestantes = 'Infinito'; return; }
+      c.creditosRestantes = Math.max(0, cs - (c.creditosUsadosSemana || 0));
+    });
+    renderClientes();
+  }
 }
 
 function renderAbonos() {
