@@ -348,13 +348,19 @@
     .clientes-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; padding:4px 0 24px; }
     @media(max-width:1100px){ .clientes-grid { grid-template-columns:repeat(2,1fr); } }
     @media(max-width:640px){  .clientes-grid { grid-template-columns:1fr; } }
-    .cliente-card { background:var(--dark2); border:1px solid var(--border); border-left:4px solid var(--border); padding:18px 20px 18px 16px; display:flex; flex-direction:column; gap:10px; position:relative; transition:border-color .2s; }
+    .cliente-card { background:var(--dark2); border:1px solid var(--border); border-left:7px solid var(--border); padding:18px 20px 18px 18px; display:flex; flex-direction:column; gap:10px; position:relative; transition:all .2s; }
     .cliente-card:hover { border-color:var(--gold); }
-    .cliente-card.st-ok      { border-left-color:#5a8a6a; }   /* abono al día */
-    .cliente-card.st-pronto  { border-left-color:#c9a96e; }   /* vence en ≤7d */
-    .cliente-card.st-vencido { border-left-color:#e08070; }   /* abono vencido */
-    .cliente-card.st-sin     { border-left-color:#555; }       /* sin abono */
-    .cliente-card.st-nueva   { border-left-color:#4a90c7; }    /* cuenta nueva */
+    .cliente-card::before {
+      content: ''; position: absolute; top: 12px; right: 14px;
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--st-color, #555);
+      box-shadow: 0 0 0 2px rgba(255,255,255,.04);
+    }
+    .cliente-card.st-ok      { --st-color:#5a8a6a; border-left-color:#5a8a6a; background:linear-gradient(90deg,rgba(90,138,106,.14),transparent 40%),var(--dark2); }
+    .cliente-card.st-pronto  { --st-color:#c9a96e; border-left-color:#c9a96e; background:linear-gradient(90deg,rgba(201,169,110,.18),transparent 40%),var(--dark2); }
+    .cliente-card.st-vencido { --st-color:#e08070; border-left-color:#e08070; background:linear-gradient(90deg,rgba(224,128,112,.20),transparent 45%),var(--dark2); }
+    .cliente-card.st-sin     { --st-color:#7a7a7a; border-left-color:#7a7a7a; }
+    .cliente-card.st-nueva   { --st-color:#4a90c7; border-left-color:#4a90c7; background:linear-gradient(90deg,rgba(74,144,199,.16),transparent 40%),var(--dark2); }
     .cliente-card-nombre { font-size:14px; font-weight:600; color:var(--gold-light); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cliente-card-sub { font-size:10px; color:var(--muted); letter-spacing:.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .cliente-card-badges { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
