@@ -543,6 +543,17 @@
         </div>
       </div>
       <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:20px">Aviso de vencimiento</div>
+        <div class="form-group">
+          <label>Avisar a la clienta por email cuando faltan</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="number" id="cfg-dias-aviso-venc" min="1" max="60" style="width:80px">
+            <span style="font-size:12px;color:var(--muted)">d&#237;as para que venza el abono</span>
+          </div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px">El email sale todas las ma&#241;anas a las 9 AM. Ej: 5 = avisa 5 d&#237;as antes del vencimiento.</div>
+        </div>
+      </div>
+      <div style="background:var(--dark2);border:1px solid var(--border);padding:28px;margin-bottom:16px">
         <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:16px">Feriados y d&#237;as cerrados</div>
         <p style="font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6">Estos d&#237;as no aparecer&#225;n como disponibles en la agenda de las clientas.</p>
 
@@ -831,7 +842,7 @@ function normalizeParams(action, params) {
     const key = map[k] || k;
     if (key === 'activo' && typeof v === 'string') {
       out[key] = (v === 'true' || v === 'TRUE');
-    } else if (['cuposTotales','clasesSemana','monto','duracion','semanasAgenda','minutosReserva','minutosCancelacion'].includes(key) && typeof v === 'string') {
+    } else if (['cuposTotales','clasesSemana','monto','duracion','semanasAgenda','minutosReserva','minutosCancelacion','diasAvisoVencimiento'].includes(key) && typeof v === 'string') {
       out[key] = Number(v);
     } else if ((key === 'fechaPago' || key === 'fechaVencimiento') && v === '') {
       out[key] = null;
@@ -1931,6 +1942,7 @@ async function cargarConfig() {
   document.getElementById('cfg-semanas-agenda').value = res.config.semanasAgenda || 2;
   document.getElementById('cfg-min-reserva').value = res.config.minutosReserva;
   document.getElementById('cfg-min-cancelacion').value = res.config.minutosCancelacion;
+  document.getElementById('cfg-dias-aviso-venc').value = res.config.diasAvisoVencimiento || 5;
   renderDiasCerrados(res.config.diasCerrados || []);
 }
 
@@ -1938,7 +1950,8 @@ async function guardarConfig() {
   const semanasAgenda = document.getElementById('cfg-semanas-agenda').value;
   const minutosReserva = document.getElementById('cfg-min-reserva').value;
   const minutosCancelacion = document.getElementById('cfg-min-cancelacion').value;
-  const res = await api('setConfig', { semanasAgenda, minutosReserva, minutosCancelacion });
+  const diasAvisoVencimiento = document.getElementById('cfg-dias-aviso-venc').value;
+  const res = await api('setConfig', { semanasAgenda, minutosReserva, minutosCancelacion, diasAvisoVencimiento });
   const msg = document.getElementById('config-msg');
   if (res.ok) {
     msg.innerHTML = '<div class="msg success" style="margin-top:12px">&#10003; Configuraci&#243;n guardada</div>';
@@ -2265,6 +2278,7 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <li><strong style="color:var(--gold-light)">Semanas de agenda</strong> &#8212; cu&#225;ntas semanas hacia adelante ven las clientas</li>
           <li><strong style="color:var(--gold-light)">Cierre de reservas</strong> &#8212; minutos antes de la clase en que se cierra</li>
           <li><strong style="color:var(--gold-light)">Cancelaciones</strong> &#8212; minutos m&#237;nimos para cancelar con devoluci&#243;n de cr&#233;dito</li>
+          <li><strong style="color:var(--gold-light)">Aviso de vencimiento</strong> &#8212; d&#237;as antes del vencimiento del abono en que se le env&#237;a un email a la clienta para que lo renueve</li>
           <li><strong style="color:var(--gold-light)">Feriados y d&#237;as cerrados</strong> &#8212; agregar fechas que no aparezcan en la agenda</li>
           <li><strong style="color:var(--gold-light)">Liberar reservas vencidas</strong> &#8212; cancela reservas de abonos vencidos y notifica</li>
         </ul>
