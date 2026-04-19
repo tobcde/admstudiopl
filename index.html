@@ -2227,11 +2227,18 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
           <li><strong style="color:var(--gold-light)">+ Nueva clienta</strong> &#8212; alta r&#225;pida desde el admin (sin PAR-Q)</li>
           <li><strong style="color:var(--gold-light)">Ficha</strong> &#8212; ver datos, reservas futuras, PAR-Q y WhatsApp r&#225;pido</li>
           <li><strong style="color:var(--gold-light)">WhatsApp</strong> &#8212; abre chat directo con mensajes predefinidos</li>
-          <li><strong style="color:var(--gold-light)">Pago</strong> &#8212; registrar fecha de pago y vencimiento del abono</li>
-          <li><strong style="color:var(--gold-light)">&#128465;</strong> &#8212; eliminar clienta (acci&#243;n irreversible)</li>
-          <li>Dentro de la ficha: <em>Editar</em> nombre, email, tel&#233;fono, DNI y abono</li>
-          <li>Filtr&#225; por estado (activa/inactiva), abono o busc&#225; por nombre/email</li>
+          <li><strong style="color:var(--gold-light)">$ Pago</strong> &#8212; registrar fecha de pago y vencimiento del abono</li>
+          <li>Dentro de la ficha: <em>Editar</em> nombre, email, tel&#233;fono, DNI, abono y fechas. Desde ah&#237; tambi&#233;n pod&#233;s <em>Eliminar cliente</em> (acci&#243;n irreversible).</li>
+          <li>Filtr&#225; por estado (activa / inactiva / abono vencido / sin abono) o busc&#225; por nombre/email/DNI</li>
         </ul>
+        <div style="margin-top:10px;padding:10px 12px;background:rgba(255,255,255,0.03);border-left:2px solid var(--gold);font-size:11px;color:var(--muted)">
+          <strong style="color:var(--gold-light)">Colores de las cards</strong>:
+          <span style="color:#5a8a6a">&#9679; verde</span> abono al d&#237;a &middot;
+          <span style="color:#c9a96e">&#9679; dorado</span> vence en &#8804; 7 d&#237;as &middot;
+          <span style="color:#e08070">&#9679; rojo</span> abono vencido &middot;
+          <span style="color:#4a90c7">&#9679; azul</span> cuenta nueva sin abono &middot;
+          <span style="color:#7a7a7a">&#9679; gris</span> sin abono asignado
+        </div>
       </div>
 
       <div>
@@ -2246,9 +2253,9 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
       <div>
         <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:8px">Horarios fijos</div>
         <ul style="padding-left:16px;color:var(--muted)">
-          <li>Asignale a una clienta un horario fijo permanente</li>
+          <li>Asignale a una clienta un horario fijo permanente (ej: "Pablo todos los lunes a las 12")</li>
           <li>Se muestra con &#128204; en su app para que sepa que es su lugar</li>
-          <li>Para crear las reservas autom&#225;ticas de los fijos, corr&#233; <strong style="color:var(--gold-light)">procesarHorariosFijos</strong> desde Apps Script</li>
+          <li>Las reservas autom&#225;ticas de los fijos se crean todas las noches a las 3 AM para las pr&#243;ximas semanas &#8212; no hay que correr nada a mano</li>
         </ul>
       </div>
 
