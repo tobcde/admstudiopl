@@ -700,17 +700,257 @@
   </div>
 </div>
 
+<!-- Firebase SDK (compat) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js"></script>
+
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbxXDPzJ7PDURlObekwVwRh59vfQUa26EnRSp160BekmewWhbfn4uN4hymfUI_8fQjqK/exec';
-let adminToken = sessionStorage.getItem('spl_admin') || null;
+// ── Firebase init ───────────────────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey: "AIzaSyD7ycKhwnM0_uu2hQMAgHDAB1g56_06Kps",
+  authDomain: "studiopl-2f662.firebaseapp.com",
+  projectId: "studiopl-2f662",
+  storageBucket: "studiopl-2f662.firebasestorage.app",
+  messagingSenderId: "307831810819",
+  appId: "1:307831810819:web:ed71278c57cf7300d45736"
+});
+
+// App Check con reCAPTCHA v3 (el backend todavía no enforce — ver functions/src/shared/appcheck.ts)
+try {
+  firebase.appCheck().activate('6LfNrL4sAAAAAG4xOEl1pDdX9EPEm8Jr4umEpTvU', true);
+} catch (e) { console.warn('App Check no pudo iniciar:', e.message); }
+
+// Persistencia local: la sesión sobrevive a cerrar el browser
+firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+
+// ── Constantes ──────────────────────────────────────────────────────────────
+const CF_BASE = 'https://us-central1-studiopl-2f662.cloudfunctions.net';
+const ADMIN_EMAIL = 'pablo.magalotti@gmail.com'; // único admin por ahora
+
+let adminToken = null; // legacy: flag "hay sesión"; el ID token real se pide fresh
 let todosHorarios = [], todasReservas = [], todosClientes = [];
 let filtroEstadoReservas = 'activa';
 
+// ── Adaptador api() — mapea acciones legacy a los nuevos endpoints CF ───────
+const ACTION_MAP = {
+  adminGetStats:            ['GET',  '/stats'],
+  adminGetHorarios:         ['GET',  '/horarios'],
+  adminCrearHorario:        ['POST', '/horarios/crear'],
+  adminEditarHorario:       ['POST', p => '/horarios/' + p.id + '/editar'],
+  adminEliminarHorario:     ['POST', p => '/horarios/' + p.id + '/eliminar'],
+  adminGetReservas:         ['GET',  '/reservas'],
+  adminCancelarReserva:     ['POST', p => '/reservas/' + p.reservaId + '/cancelar'],
+  adminGetClientes:         ['GET',  '/clientes'],
+  adminGetFicha:            ['GET',  p => '/clientes/' + p.clienteId + '/ficha'],
+  adminEditarCliente:       ['POST', p => '/clientes/' + p.id + '/editar'],
+  adminEliminarCliente:     ['POST', p => '/clientes/' + p.id + '/eliminar'],
+  adminGetAbonos:           ['GET',  '/abonos'],
+  adminCrearAbono:          ['POST', '/abonos/crear'],
+  adminEditarAbono:         ['POST', p => '/abonos/' + p.id + '/editar'],
+  adminEliminarAbono:       ['POST', p => '/abonos/' + p.id + '/eliminar'],
+  adminGetHorariosFijos:    ['GET',  '/fijos'],
+  adminSetHorarioFijo:      ['POST', '/fijos/crear'],
+  adminEliminarHorarioFijo: ['POST', p => '/fijos/' + p.id + '/eliminar'],
+  adminRegistrarPago:       ['POST', '/pagos/crear'],
+  adminGetConfig:           ['GET',  '/config'],
+  setConfig:                ['POST', '/config/editar'],
+  adminAgregarDiaCerrado:   ['POST', '/config/diasCerrados/agregar'],
+  adminQuitarDiaCerrado:    ['POST', '/config/diasCerrados/quitar'],
+  liberarReservasVencidas:  ['POST', '/reservas/liberarVencidas'],
+};
 
-// == BIOMETRICO ADMIN =======================================================
+// Renombra/convierte keys snake_case → camelCase + tipos correctos
+function normalizeParams(action, params) {
+  const rename = {
+    adminEditarCliente: { tipo_abono: 'tipoAbono', fecha_pago: 'fechaPago', fecha_vencimiento: 'fechaVencimiento' },
+    adminCrearHorario:  { cupos_totales: 'cuposTotales' },
+    adminEditarHorario: { cupos_totales: 'cuposTotales' },
+    adminCrearAbono:    { clases_semana: 'clasesSemana' },
+    adminEditarAbono:   { clases_semana: 'clasesSemana' },
+  };
+  const map = rename[action] || {};
+  const out = {};
+  for (const [k, v] of Object.entries(params)) {
+    const key = map[k] || k;
+    if (key === 'activo' && typeof v === 'string') {
+      out[key] = (v === 'true' || v === 'TRUE');
+    } else if (['cuposTotales','clasesSemana','monto','duracion','semanasAgenda','minutosReserva','minutosCancelacion'].includes(key) && typeof v === 'string') {
+      out[key] = Number(v);
+    } else if ((key === 'fechaPago' || key === 'fechaVencimiento') && v === '') {
+      out[key] = null;
+    } else {
+      out[key] = v;
+    }
+  }
+  return out;
+}
+
+// Adapta respuestas del backend al shape que espera el render legacy:
+//  - Timestamps Firestore ({_seconds, _nanoseconds}) → "YYYY-MM-DD"
+//  - Duplica cada key camelCase como snake_case (ambas coexisten)
+//  - Agrega campos computados por acción (totalReservas, abonoVencido, creditosRestantes)
+function deserializeResponse(action, body) {
+  function walk(v) {
+    if (v == null) return v;
+    if (Array.isArray(v)) return v.map(walk);
+    if (typeof v !== 'object') return v;
+    // Timestamp shapes
+    if (('_seconds' in v && '_nanoseconds' in v) && Object.keys(v).length <= 2) {
+      return new Date(v._seconds * 1000).toISOString().slice(0, 10);
+    }
+    if (('seconds' in v && 'nanoseconds' in v) && Object.keys(v).length <= 2) {
+      return new Date(v.seconds * 1000).toISOString().slice(0, 10);
+    }
+    const out = {};
+    for (const [k, val] of Object.entries(v)) {
+      const w = walk(val);
+      out[k] = w;
+      const snake = k.replace(/[A-Z]/g, c => '_' + c.toLowerCase());
+      if (snake !== k && !(snake in out) && !(snake in v)) out[snake] = w;
+    }
+    return out;
+  }
+  const result = walk(body);
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  function addAbonoVencido(c) {
+    if (c && c.fechaVencimiento && typeof c.fechaVencimiento === 'string') {
+      c.abonoVencido = c.fechaVencimiento < hoy;
+    }
+  }
+  function addCreditosRestantes(c) {
+    if (!c) return;
+    const abono = (window.todosAbonos || []).find(a => a.nombre === c.tipoAbono);
+    if (!abono) { c.creditosRestantes = c.tipoAbono ? '-' : ''; return; }
+    const cs = Number(abono.clasesSemana || abono.clases_semana || 0);
+    if (cs >= 999) { c.creditosRestantes = 'Infinito'; return; }
+    const usados = Number(c.creditosUsadosSemana || 0);
+    c.creditosRestantes = Math.max(0, cs - usados);
+  }
+
+  if (action === 'adminGetFicha' && result.ok) {
+    const activas = (result.reservas || []).filter(r => r.estado === 'activa').length;
+    if (result.cliente) {
+      result.cliente.totalReservas = activas;
+      addAbonoVencido(result.cliente);
+      addCreditosRestantes(result.cliente);
+    }
+  }
+  if (action === 'adminGetClientes' && result.ok && Array.isArray(result.clientes)) {
+    result.clientes.forEach(c => { addAbonoVencido(c); addCreditosRestantes(c); });
+  }
+  if (action === 'adminGetAbonos' && result.ok && Array.isArray(result.abonos)) {
+    window.todosAbonos = result.abonos; // cache para computeds
+  }
+  return result;
+}
+
+// ── Traductor de códigos de error del backend a mensajes amigables ──────────
+const ERROR_MAP = {
+  no_credits: 'Sin cr\u00e9ditos disponibles esta semana',
+  class_full: 'La clase est\u00e1 completa',
+  abono_vencido: 'Abono vencido',
+  too_late: 'Pas\u00f3 el plazo para operar sobre esta clase',
+  day_closed: 'D\u00eda cerrado',
+  already_reserved: 'Ya existe una reserva para esta clase',
+  already_waiting: 'Ya est\u00e1 en la lista de espera',
+  reserva_not_found: 'Reserva no encontrada',
+  not_your_reserva: 'Esa reserva no pertenece al usuario',
+  already_cancelled: 'La reserva ya estaba cancelada',
+  client_inactive: 'La clienta est\u00e1 inactiva',
+  client_not_found: 'Clienta no encontrada',
+  cliente_not_found: 'Clienta no encontrada',
+  horario_not_found: 'Horario no encontrado',
+  horario_inactive: 'El horario est\u00e1 desactivado',
+  abono_not_found: 'Plan de abono no encontrado',
+  config_not_found: 'Falta configuraci\u00f3n',
+  missing_params: 'Faltan datos del formulario',
+  missing_confirmation: 'Falta confirmar',
+  invalid_dates: 'Fechas inv\u00e1lidas',
+  invalid_fecha: 'Fecha inv\u00e1lida',
+  missing_fecha: 'Falta la fecha',
+  invalid_fechaClase: 'Fecha de clase inv\u00e1lida',
+  dni_already_registered: 'Ese DNI ya est\u00e1 registrado',
+  email_already_registered: 'Ese email ya est\u00e1 registrado',
+  invalid_email: 'Email inv\u00e1lido',
+  password_too_short: 'La contrase\u00f1a tiene que tener al menos 6 caracteres',
+  auth_error: 'Error al crear el usuario de Auth',
+  firestore_error: 'Error al guardar en la base',
+  network_error: 'Sin conexi\u00f3n. Prob\u00e1 de nuevo.',
+  not_authenticated: 'Sesi\u00f3n expirada. Volv\u00e9 a entrar.',
+  not_admin: 'No ten\u00e9s permisos de admin',
+  nothing_to_update: 'No hay cambios para guardar',
+  empty_updates: 'No hay cambios para guardar',
+  invalid_token: 'Tu sesi\u00f3n expir\u00f3. Volv\u00e9 a entrar.',
+  action_not_mapped: 'Acci\u00f3n no soportada',
+  missing_app_check: 'Falta verificaci\u00f3n de la app',
+  invalid_app_check: 'Verificaci\u00f3n de la app inv\u00e1lida',
+  email_pending: 'La clienta no complet\u00f3 su email real',
+};
+function _friendly(body) {
+  if (body && body.ok === false && body.error && ERROR_MAP[body.error]) {
+    body.error = ERROR_MAP[body.error];
+  }
+  return body;
+}
+
+async function api(action, params = {}) {
+  // Login: Firebase Auth directo
+  if (action === 'adminLogin') {
+    try {
+      await firebase.auth().signInWithEmailAndPassword(ADMIN_EMAIL, params.password);
+      adminToken = 'firebase';
+      return { ok: true, token: 'firebase' };
+    } catch (e) {
+      return { ok: false, error: 'Contrase\u00f1a incorrecta' };
+    }
+  }
+
+  // Registro de cliente: va al CF apiAuth
+  if (action === 'registrarCliente') {
+    const r = await fetch(CF_BASE + '/apiAuth/registrar', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    return _friendly(deserializeResponse(action, await r.json()));
+  }
+
+  const entry = ACTION_MAP[action];
+  if (!entry) {
+    console.error('Acci\u00f3n no mapeada:', action);
+    return { ok: false, error: 'action_not_mapped' };
+  }
+  const [method, pathOrFn] = entry;
+  const path = typeof pathOrFn === 'function' ? pathOrFn(params) : pathOrFn;
+
+  const user = firebase.auth().currentUser;
+  if (!user) return { ok: false, error: 'not_authenticated' };
+  const idToken = await user.getIdToken();
+
+  const opts = {
+    method,
+    headers: { 'Authorization': 'Bearer ' + idToken },
+  };
+  if (method === 'POST') {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(normalizeParams(action, params));
+  }
+
+  try {
+    const r = await fetch(CF_BASE + '/apiAdmin' + path, opts);
+    return _friendly(deserializeResponse(action, await r.json()));
+  } catch (e) {
+    return { ok: false, error: ERROR_MAP.network_error, message: e.message };
+  }
+}
+
+// ── Biométrico ──────────────────────────────────────────────────────────────
 function bioAdminDisponible() { return !!(window.PublicKeyCredential && navigator.credentials); }
 async function registrarBioAdmin() {
-  if (!bioAdminDisponible()) { alert('Este dispositivo no soporta biometrico'); return; }
+  if (!bioAdminDisponible()) { await uiAlert('Este dispositivo no soporta biom\u00e9trico.', {title:'No soportado'}); return; }
   try {
     var ch = new Uint8Array(32); window.crypto.getRandomValues(ch);
     var uid2 = new TextEncoder().encode('spl_admin');
@@ -722,14 +962,14 @@ async function registrarBioAdmin() {
     }});
     if (!cred) return;
     localStorage.setItem('spl_bio_admin_id', cred.id);
-    alert('Biometrico activado!');
-  } catch(e) { alert('Error: ' + e.message); }
+    await uiAlert('Biom\u00e9trico activado.', {title:'Listo'});
+  } catch(e) { await uiAlert(e.message, {title:'Error'}); }
 }
 async function loginBioAdmin() {
   var errEl = document.getElementById('login-error');
   if (!bioAdminDisponible()) { errEl.innerHTML='<div class="msg error">No soportado</div>'; return; }
   var bioId = localStorage.getItem('spl_bio_admin_id');
-  if (!bioId) { errEl.innerHTML='<div class="msg error">No hay biometrico registrado. Ingresa con contrasena primero.</div>'; return; }
+  if (!bioId) { errEl.innerHTML='<div class="msg error">No hay biom\u00e9trico registrado. Ingres\u00e1 con contrase\u00f1a primero.</div>'; return; }
   try {
     var ch = new Uint8Array(32); window.crypto.getRandomValues(ch);
     var bin = atob(bioId.replace(/-/g,'+').replace(/_/g,'/'));
@@ -741,56 +981,54 @@ async function loginBioAdmin() {
       userVerification:'required', timeout:60000
     }});
     if (!cred) return;
-    var tok = sessionStorage.getItem('spl_bio_admin_token') || localStorage.getItem('spl_bio_admin_token');
-    if (tok) {
-      adminToken = tok;
-      sessionStorage.setItem('spl_admin', adminToken);
+    // Biometric OK: verificamos si la sesión Firebase sigue viva (persistence LOCAL)
+    if (firebase.auth().currentUser) {
       document.getElementById('login-screen').style.display='none';
       cargarTodo();
     } else {
-      errEl.innerHTML='<div class="msg error">Sesion expirada. Ingresa con contrasena.</div>';
-      localStorage.removeItem('spl_bio_admin_id');
+      errEl.innerHTML='<div class="msg error">Sesi\u00f3n expirada. Ingres\u00e1 con contrase\u00f1a.</div>';
     }
-  } catch(e) { document.getElementById('login-error').innerHTML='<div class="msg error">Cancelado: '+e.message+'</div>'; }
+  } catch(e) { errEl.innerHTML='<div class="msg error">Cancelado: '+e.message+'</div>'; }
 }
-// == FIN BIOMETRICO ADMIN ===================================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (adminToken) { document.getElementById('login-screen').style.display='none'; cargarTodo(); }
-  if (localStorage.getItem('spl_bio_admin_id')) { var bb=document.getElementById('btn-bio-admin'); if(bb) bb.style.display='flex'; var sep=document.getElementById('login-bio-sep'); if(sep) sep.style.display='flex'; }
+// ── Boot ────────────────────────────────────────────────────────────────────
+firebase.auth().onAuthStateChanged(user => {
+  if (user) {
+    adminToken = 'firebase';
+    document.getElementById('login-screen').style.display = 'none';
+    cargarTodo();
+  } else {
+    adminToken = null;
+    document.getElementById('login-screen').style.display = 'flex';
+  }
 });
 
-async function api(action, params={}) {
-  const url = new URL(API_URL);
-  url.searchParams.set('action', action);
-  if (adminToken) params.adminToken = adminToken;
-  Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));
-  const res = await fetch(url);
-  return res.json();
-}
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('spl_bio_admin_id')) {
+    var bb = document.getElementById('btn-bio-admin'); if (bb) bb.style.display = 'flex';
+    var sep = document.getElementById('login-bio-sep'); if (sep) sep.style.display = 'flex';
+  }
+});
 
+// ── Login/logout ────────────────────────────────────────────────────────────
 async function adminLogin() {
   const pass = document.getElementById('admin-pass').value;
   const res = await api('adminLogin', {password: pass});
   if (res.ok) {
-    adminToken = res.token;
-    sessionStorage.setItem('spl_admin', adminToken);
-    sessionStorage.setItem('spl_bio_admin_token', adminToken);
-    localStorage.setItem('spl_bio_admin_token', adminToken);
     document.getElementById('login-screen').style.display='none';
     cargarTodo();
     if (bioAdminDisponible() && !localStorage.getItem('spl_bio_admin_id')) {
-      setTimeout(function(){
-        if (confirm('Activar huella o Face ID para la proxima vez?')) registrarBioAdmin();
+      setTimeout(async function(){
+        if (await uiConfirm('\u00bfActivar huella o Face ID para la pr\u00f3xima vez?', {title:'Biom\u00e9trico', okText:'Activar'})) registrarBioAdmin();
       }, 800);
     }
   } else {
-    document.getElementById('login-error').innerHTML='<div class="msg error">Contrasena incorrecta</div>';
+    document.getElementById('login-error').innerHTML='<div class="msg error">Contrase\u00f1a incorrecta</div>';
   }
 }
 
-function adminLogout() {
-  sessionStorage.removeItem('spl_admin');
+async function adminLogout() {
+  try { await firebase.auth().signOut(); } catch {}
   adminToken = null;
   document.getElementById('login-screen').style.display='flex';
 }
@@ -849,7 +1087,7 @@ function irA(seccion, navEl) {
   var page = document.getElementById('page-'+seccion);
   if (page) page.classList.add('active');
   if (navEl) navEl.classList.add('active');
-  var titles = { dashboard:'Dashboard', horarios:'Horarios', reservas:'Reservas', clientes:'Clientes', abonos:'Abonos', fijos:'Horarios fijos', config:'Configuracion' };
+  var titles = { dashboard:'Dashboard', horarios:'Horarios', reservas:'Reservas', clientes:'Clientes', abonos:'Abonos', fijos:'Horarios fijos', config:'Configuraci\u00f3n' };
   var titleEl = document.getElementById('mobile-page-title');
   if (titleEl) titleEl.textContent = titles[seccion] || seccion;
   var aside = document.querySelector('aside');
@@ -890,6 +1128,8 @@ async function cargarStats() {
 async function cargarHorarios() {
   const res = await api('adminGetHorarios');
   if (!res.ok) return;
+  // Re-render reservas si ya están cargadas (join depende de este cache)
+  if (todasReservas.length) setTimeout(() => renderReservas(), 0);
   todosHorarios = res.horarios;
   renderHorariosTabla();
 }
@@ -909,7 +1149,9 @@ function renderHorariosTabla() {
       <td><span class="badge ${h.activo===true||h.activo==='TRUE'?'activo':'inactivo'}">${h.activo===true||h.activo==='TRUE'?'Activo':'Inactivo'}</span></td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="editarHorario('${h.id}')">Editar</button>
-        <button class="btn btn-danger btn-sm" onclick="desactivarHorario('${h.id}')">Desactivar</button>
+        ${(h.activo===true||h.activo==='TRUE')
+          ? `<button class="btn btn-danger btn-sm" onclick="desactivarHorario('${h.id}')">Desactivar</button>`
+          : `<button class="btn btn-outline btn-sm" onclick="activarHorario('${h.id}')">Activar</button>`}
         <button class="btn btn-danger btn-sm" onclick="eliminarHorarioFisico('${h.id}','${h.dia} ${h.hora}')">Eliminar</button>
       </td>
     </tr>
@@ -979,8 +1221,9 @@ function renderReservas() {
   tb.innerHTML = data.map(r => {
     const d = new Date(r.fecha_clase + 'T00:00:00');
     const fecha = `${DIAS[d.getDay()]} ${d.getDate()} ${MESES[d.getMonth()]}`;
-    const h = r.horario;
-    const c = r.cliente;
+    // Join con caches globales (backend nuevo devuelve IDs, no objetos embebidos)
+    const h = r.horario || todosHorarios.find(x => x.id === (r.horario_id || r.horarioId));
+    const c = r.cliente || todosClientes.find(x => x.id === (r.cliente_id || r.clienteId));
     var badgeCls, badgeTxt;
     if (r.estadoReal === 'vencida')        { badgeCls='vencida';   badgeTxt='Vencida'; }
     else if (r.estadoReal === 'cancelada')  { badgeCls='cancelado'; badgeTxt='Cancelada'; }
@@ -1000,10 +1243,10 @@ function renderReservas() {
 }
 
 async function cancelarReservaAdmin(reservaId) {
-  if (!confirm('?Cancelar esta reserva? Se notificara a la clienta.')) return;
+  if (!await uiConfirm('Se notificar\u00e1 a la clienta por email.', {title:'\u00bfCancelar esta reserva?', okText:'S\u00ed, cancelar', danger:true})) return;
   const res = await api('adminCancelarReserva', {reservaId});
   if (res.ok) { cargarReservas(); cargarStats(); }
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error al cancelar', {title:'Error'});
 }
 
 async function cargarClientes() {
@@ -1012,6 +1255,8 @@ async function cargarClientes() {
   todosClientes = res.clientes;
   poblarFiltroAbonos();
   renderClientes();
+  // Re-render reservas si ya están cargadas (join depende de este cache)
+  if (todasReservas.length) renderReservas();
 }
 
 let ordenAsc = true;
@@ -1198,7 +1443,7 @@ async function verFicha(clienteId) {
       <div class="stat-card"><div class="stat-value" style="font-size:28px;color:${activo?'var(--gold)':'var(--muted)'}">${activo?'Activa':'Inactiva'}</div><div class="stat-label">Estado</div></div>
     </div>
     <div style="margin-bottom:20px">
-      ${row('Email', c.email)} ${row('Telefono', c.telefono||'-')} ${row('DNI', c.dni||'-')}
+      ${row('Email', c.email)} ${row('Tel\u00e9fono', c.telefono||'-')} ${row('DNI', c.dni||'-')}
       ${row('Abono', c.tipo_abono||'-')} ${row('Creditos semana', String(c.creditosRestantes))}
       ${row('Ultima fecha de pago', (function(){ var fp = (pagos && pagos.length) ? (pagos[0].fecha_pago||pagos[0].fecha||'') : ''; if (!fp) fp = c.fechaPago||c.fecha_pago||''; if (fp) { try { var d = new Date(fp); if (!isNaN(d.getTime())) return fmtFechaUI(d.toISOString().split('T')[0]); } catch(e){} return fp; } return '-'; })() )}
       ${row('Vencimiento', c.fechaVencimiento ? (c.abonoVencido ? '<span style="color:#e08070">'+fmtFechaUI(c.fechaVencimiento)+' (VENCIDO)</span>' : fmtFechaUI(c.fechaVencimiento)) : '-')}
@@ -1265,31 +1510,37 @@ async function guardarCliente() {
 async function confirmarEliminarCliente() {
   const id = document.getElementById('c-id').value;
   const nombre = document.getElementById('c-nombre').value;
-  if (!confirm('?ELIMINAR a ' + nombre + '? Esta accion no se puede deshacer y borrara todos sus datos.')) return;
+  if (!await uiConfirm('Se borrar\u00e1n todos sus datos, reservas y pagos. Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarCliente', {id, confirmar:'SI'});
   if (res.ok) { cerrarModal('modal-cliente'); cargarClientes(); cargarStats(); }
   else showModalMsg('modal-cliente-msg', res.error, 'error');
 }
 async function eliminarCliente(id, nombre) {
-  if (!confirm('?Eliminar a ' + nombre + '? Esta accion no se puede deshacer.')) return;
+  if (!await uiConfirm('Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarCliente', {id});
   if (res.ok) { cargarClientes(); cargarStats(); }
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error al eliminar', {title:'Error'});
 }
 
 // &#9472;&#9472; HORARIOS DESACTIVAR / ELIMINAR &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
 async function desactivarHorario(id) {
-  if (!confirm('?Desactivar este horario? No aparecera en la web pero se conserva en la planilla.')) return;
+  if (!await uiConfirm('No aparecer\u00e1 en la web pero queda guardado en la base.', {title:'\u00bfDesactivar este horario?', okText:'Desactivar'})) return;
   const res = await api('adminEliminarHorario', {id, borrarFila: false});
   if (res.ok) cargarHorarios();
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
+}
+
+async function activarHorario(id) {
+  const res = await api('adminEditarHorario', {id, activo: true});
+  if (res.ok) cargarHorarios();
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 async function eliminarHorarioFisico(id, nombre) {
-  if (!confirm('?ELIMINAR PERMANENTEMENTE el horario ' + nombre + '?\nEsta accion no se puede deshacer.')) return;
+  if (!await uiConfirm('Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar permanentemente ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarHorario', {id, borrarFila: true});
   if (res.ok) cargarHorarios();
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 // &#9472;&#9472; PAGO / VENCIMIENTO &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
@@ -1447,10 +1698,10 @@ async function guardarAbono() {
 }
 
 async function eliminarAbono(id) {
-  if (!confirm('?Eliminar este abono? Los clientes con este plan quedaran sin abono asignado.')) return;
+  if (!await uiConfirm('Las clientas con este plan quedar\u00e1n sin abono asignado.', {title:'\u00bfEliminar este abono?', okText:'S\u00ed, eliminar', danger:true})) return;
   const res = await api('adminEliminarAbono', {id});
   if (res.ok) cargarAbonos();
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 // HORARIOS CRUD
@@ -1505,10 +1756,10 @@ async function guardarHorario() {
 }
 
 async function eliminarHorario(id) {
-  if (!confirm('?Desactivar este horario? No se eliminara, pero no aparecera en la web.')) return;
+  if (!await uiConfirm('No se eliminar\u00e1, pero no aparecer\u00e1 en la web.', {title:'\u00bfDesactivar este horario?', okText:'Desactivar'})) return;
   const res = await api('adminEliminarHorario', {id});
   if (res.ok) cargarHorarios();
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 // &#9472;&#9472; ALTA RAPIDA DE CLIENTE DESDE ADMIN &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
@@ -1593,7 +1844,7 @@ async function guardarConfig() {
   const res = await api('setConfig', { semanasAgenda, minutosReserva, minutosCancelacion });
   const msg = document.getElementById('config-msg');
   if (res.ok) {
-    msg.innerHTML = '<div class="msg success" style="margin-top:12px">&#10003; Configuracion guardada</div>';
+    msg.innerHTML = '<div class="msg success" style="margin-top:12px">&#10003; Configuraci&#243;n guardada</div>';
     setTimeout(() => msg.innerHTML = '', 3000);
   } else {
     msg.innerHTML = `<div class="msg error" style="margin-top:12px">${res.error}</div>`;
@@ -1641,11 +1892,11 @@ async function agregarDiaCerrado() {
 async function quitarDiaCerrado(fecha) {
   const res = await api('adminQuitarDiaCerrado', { fecha });
   if (res.ok) renderDiasCerrados(res.diasCerrados);
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 async function liberarVencidas() {
-  if (!confirm('?Cancelar todas las reservas futuras de clientas con abono vencido? Se les enviara un email de aviso.')) return;
+  if (!await uiConfirm('Se cancelar\u00e1n todas las reservas futuras de clientas con abono vencido y se les enviar\u00e1 email de aviso.', {title:'\u00bfLiberar reservas vencidas?', okText:'S\u00ed, liberar', danger:true})) return;
   const btn = document.getElementById('btn-liberar');
   btn.disabled = true; btn.textContent = 'Procesando...';
   const res = await api('liberarReservasVencidas');
@@ -1665,17 +1916,27 @@ function showModalMsg(id,txt,tipo) { document.getElementById(id).innerHTML=`<div
 
 // &#9472;&#9472; HORARIOS FIJOS CRUD &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
 async function cargarFijos() {
+  // Asegurar que las listas que usamos para el join estén cargadas
+  if (!todosClientes.length) await cargarClientes();
+  if (!todosHorarios.length) await cargarHorarios();
   const res = await api('adminGetHorariosFijos');
   if (!res.ok) return;
   const tb = document.getElementById('fijos-tbody');
   const fijos = res.fijos || [];
   if (!fijos.length) { tb.innerHTML='<tr class="empty-row"><td colspan="4">No hay horarios fijos asignados</td></tr>'; return; }
-  tb.innerHTML = fijos.map(f=>`<tr>
-    <td style="font-weight:500">${f.clienteNombre}</td>
-    <td>${f.horarioDia}</td>
-    <td style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300">${f.horarioHora}</td>
-    <td><button class="btn btn-danger btn-sm" onclick="quitarFijo('${f.id}')">Quitar</button></td>
-  </tr>`).join('');
+  tb.innerHTML = fijos.map(f => {
+    const c = todosClientes.find(x => x.id === (f.cliente_id || f.clienteId));
+    const h = todosHorarios.find(x => x.id === (f.horario_id || f.horarioId));
+    const nombreCli = c ? c.nombre : '(clienta borrada)';
+    const dia = h ? h.dia : '-';
+    const hora = h ? h.hora : '-';
+    return `<tr>
+      <td style="font-weight:500">${nombreCli}</td>
+      <td>${dia}</td>
+      <td style="font-family:'Cormorant Garamond',serif;font-size:18px;font-weight:300">${hora}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="quitarFijo('${f.id}')">Quitar</button></td>
+    </tr>`;
+  }).join('');
 }
 
 async function abrirModalFijo() {
@@ -1703,10 +1964,10 @@ async function guardarFijo() {
 }
 
 async function quitarFijo(id) {
-  if (!confirm('?Quitar este horario fijo?')) return;
+  if (!await uiConfirm('La clienta dejar\u00e1 de tener lugar reservado autom\u00e1ticamente para esta clase.', {title:'\u00bfQuitar este horario fijo?', okText:'S\u00ed, quitar', danger:true})) return;
   const res = await api('adminEliminarHorarioFijo', {id});
   if (res.ok) cargarFijos();
-  else alert(res.error);
+  else await uiAlert(res.error || 'Error', {title:'Error'});
 }
 
 document.querySelectorAll('.modal-overlay').forEach(o=>{
@@ -1932,7 +2193,66 @@ document.querySelectorAll('.modal-overlay').forEach(o=>{
   </div>
 </div>
 
+<!-- Modal genérico de confirmación / aviso (reemplaza a confirm/alert nativos) -->
+<div class="modal-overlay" id="modal-ui-dialog">
+  <div class="modal" style="max-width:440px">
+    <h2 class="modal-title" id="ui-dialog-title">Confirmar</h2>
+    <div id="ui-dialog-msg" style="font-size:14px;color:var(--muted,#888);line-height:1.6;margin:8px 0 18px;white-space:pre-line"></div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" id="ui-dialog-cancel" onclick="_uiDialogClose(false)">Cancelar</button>
+      <button class="btn btn-gold" id="ui-dialog-ok" onclick="_uiDialogClose(true)">Aceptar</button>
+    </div>
+  </div>
+</div>
+<script>
+let _uiDialogResolve = null;
+function _uiDialogClose(result) {
+  document.getElementById('modal-ui-dialog').classList.remove('open');
+  if (_uiDialogResolve) { const r = _uiDialogResolve; _uiDialogResolve = null; r(result); }
+}
+// Cerrar con Escape (prioridad ui-dialog, luego último modal abierto)
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Escape') return;
+  const dlg = document.getElementById('modal-ui-dialog');
+  if (dlg && dlg.classList.contains('open')) { _uiDialogClose(false); return; }
+  const abiertos = document.querySelectorAll('.modal-overlay.open');
+  if (abiertos.length) abiertos[abiertos.length - 1].classList.remove('open');
+});
+/**
+ * Modal de confirmación. Reemplaza window.confirm().
+ * opts: { title, okText, cancelText, danger (true→botón rojo) }
+ */
+function uiConfirm(message, opts) {
+  opts = opts || {};
+  document.getElementById('ui-dialog-title').textContent = opts.title || 'Confirmar';
+  document.getElementById('ui-dialog-msg').textContent = message || '';
+  const okBtn = document.getElementById('ui-dialog-ok');
+  const cancelBtn = document.getElementById('ui-dialog-cancel');
+  okBtn.textContent = opts.okText || 'Aceptar';
+  okBtn.className = 'btn ' + (opts.danger ? 'btn-danger' : 'btn-gold');
+  cancelBtn.textContent = opts.cancelText || 'Cancelar';
+  cancelBtn.style.display = '';
+  document.getElementById('modal-ui-dialog').classList.add('open');
+  return new Promise((resolve) => { _uiDialogResolve = resolve; });
+}
+/**
+ * Modal de aviso. Reemplaza window.alert().
+ * opts: { title, okText }
+ */
+function uiAlert(message, opts) {
+  opts = opts || {};
+  document.getElementById('ui-dialog-title').textContent = opts.title || 'Aviso';
+  document.getElementById('ui-dialog-msg').textContent = message || '';
+  const okBtn = document.getElementById('ui-dialog-ok');
+  okBtn.textContent = opts.okText || 'OK';
+  okBtn.className = 'btn btn-gold';
+  document.getElementById('ui-dialog-cancel').style.display = 'none';
+  document.getElementById('modal-ui-dialog').classList.add('open');
+  return new Promise((resolve) => { _uiDialogResolve = resolve; });
+}
+</script>
+
 <!-- VERSION BADGE -->
-<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v3.9</div>
+<div style="position:fixed;bottom:12px;right:12px;z-index:800;font-size:9px;letter-spacing:1.5px;color:rgba(255,255,255,0.35);font-family:'Montserrat',sans-serif;background:rgba(0,0,0,0.45);padding:4px 8px;border-radius:3px;pointer-events:none;user-select:none">v1.0</div>
 </body>
 </html>
