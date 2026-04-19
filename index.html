@@ -682,7 +682,7 @@
       Al cambiar el abono se resetean los cr&#233;ditos usados de la semana.
     </div>
     <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
-      <button class="btn btn-danger btn-sm" onclick="confirmarEliminarCliente()" style="align-self:center">Eliminar cliente</button>
+      <button id="btn-eliminar-cliente" class="btn btn-danger btn-sm" onclick="confirmarEliminarCliente()" style="align-self:center;display:none">Eliminar cliente</button>
       <div style="display:flex;gap:8px">
         <button class="btn btn-outline" onclick="cerrarModal('modal-cliente')">Cancelar</button>
         <button class="btn btn-gold" onclick="guardarCliente()">Guardar</button>
@@ -1541,6 +1541,9 @@ async function editarCliente(id) {
     return;
   }
   _editCliente = c; // referencia directa, no depende de lectura del DOM
+  // Mostrar el botón Eliminar solo cuando estamos en modo editar
+  const btnEl = document.getElementById('btn-eliminar-cliente');
+  if (btnEl) btnEl.style.display = 'inline-block';
   if (!todosAbonos.length) { const res = await api('adminGetAbonos'); if (res.ok) todosAbonos = res.abonos; }
   document.getElementById('c-id').value        = c.id;
   document.getElementById('c-nombre').value    = c.nombre||'';
