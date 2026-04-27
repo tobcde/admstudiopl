@@ -1749,7 +1749,15 @@ async function cargarAbonos() {
 function renderAbonos() {
   const tb = document.getElementById('abonos-tbody');
   if (!todosAbonos.length) { tb.innerHTML='<tr class="empty-row"><td colspan="5">No hay abonos configurados</td></tr>'; return; }
-  tb.innerHTML = todosAbonos.map(a=>{
+  // Orden: 1x, 2x, 3x, ..., Ilimitado al final.
+  // Usamos clases_semana para ordenar (999 = ilimitado va siempre al final).
+  const sorted = [...todosAbonos].sort((a,b) => {
+    const csA = parseInt(a.clases_semana || a.clasesSemana || 0);
+    const csB = parseInt(b.clases_semana || b.clasesSemana || 0);
+    if (csA !== csB) return csA - csB;
+    return (a.nombre || '').localeCompare(b.nombre || '', 'es');
+  });
+  tb.innerHTML = sorted.map(a=>{
     const activo = a.activo===true||a.activo==='TRUE';
     const clases = parseInt(a.clases_semana)>=999 ? '<span style="font-size:18px">999</span> (ilimitado)' : `${a.clases_semana} clase${parseInt(a.clases_semana)!==1?'s':''}/semana`;
     return `<tr>
