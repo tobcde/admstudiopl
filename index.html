@@ -1469,34 +1469,34 @@ async function verFicha(clienteId) {
 
   const mensajesRA = [
     {
-      label: '&#128075; Saludo',
-      texto: `Hola ${nombre1}! Te escribimos desde Studio PL. ?Como estas?`
+      label: '\u{1F44B} Saludo',
+      texto: `Hola ${nombre1}! Te escribimos desde Studio PL. ¿Cómo estás?`
     },
     {
-      label: '&#128179; Renovar abono',
+      label: '\u{1F4B3} Renovar abono',
       texto: vencStr
-        ? `Hola ${nombre1}! Te avisamos que tu abono en Studio PL vence el ${vencStr}. Para seguir reservando tus clases, renovalo antes de esa fecha. Cualquier consulta estamos aca &#128075;`
-        : `Hola ${nombre1}! Te avisamos que tu abono en Studio PL esta proximo a vencer. ?Queres renovarlo? Cualquier consulta estamos aca &#128075;`
+        ? `Hola ${nombre1}! Te avisamos que tu abono en Studio PL vence el ${vencStr}. Para seguir reservando tus clases, renová antes de esa fecha. Cualquier consulta, estamos acá \u{1F44B}`
+        : `Hola ${nombre1}! Tu abono en Studio PL está próximo a vencer. ¿Querés renovarlo? Cualquier consulta, estamos acá \u{1F44B}`
     },
     {
-      label: '&#128197; Recordatorio clase',
+      label: '\u{1F4C5} Recordatorio clase',
       texto: proxReservaStr
-        ? `Hola ${nombre1}! Te recordamos que tenes clase en Studio PL el ${proxReservaStr}. !Te esperamos! &#10024;`
-        : `Hola ${nombre1}! Te recordamos que tenes clase proximamente en Studio PL. !Te esperamos! &#10024;`
+        ? `Hola ${nombre1}! Te recordamos que tenés clase en Studio PL el ${proxReservaStr}. ¡Te esperamos! ✨`
+        : `Hola ${nombre1}! Te recordamos que tenés clase próximamente en Studio PL. ¡Te esperamos! ✨`
     },
     {
-      label: '&#10060; Reservas canceladas',
+      label: '❌ Reservas canceladas',
       texto: vencStr
-        ? `Hola ${nombre1}! Tu abono vencio el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar avisanos y te ayudamos &#10024;`
-        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono vencio. Cuando quieras renovar, avisanos y te ayudamos &#10024;`
+        ? `Hola ${nombre1}! Tu abono venció el ${vencStr} y tus reservas futuras fueron canceladas. Cuando quieras renovar, avisanos y te ayudamos ✨`
+        : `Hola ${nombre1}! Tus reservas futuras fueron canceladas porque tu abono venció. Cuando quieras renovar, avisanos y te ayudamos ✨`
     },
     {
-      label: '&#127881; Bienvenida',
-      texto: `Bienvenida al Studio PL, ${nombre1}! &#127881; Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos aca.`
+      label: '\u{1F389} Bienvenida',
+      texto: `¡Bienvenida al Studio PL, ${nombre1}! \u{1F389} Estamos muy contentos de tenerte. Cualquier consulta sobre horarios o reservas, escribinos acá.`
     },
     {
-      label: '&#128221; Completar datos',
-      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. !Gracias! &#9989;`
+      label: '\u{1F4DD} Completar datos',
+      texto: `Hola ${nombre1}! Te pedimos que completes tus datos en la app de Studio PL. ¡Gracias! ✅`
     },
   ];
 
