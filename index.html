@@ -955,6 +955,7 @@ const ERROR_MAP = {
   missing_app_check: 'Falta verificaci\u00f3n de la app',
   invalid_app_check: 'Verificaci\u00f3n de la app inv\u00e1lida',
   email_pending: 'La clienta no complet\u00f3 su email real',
+  cannot_delete_admin: 'No se puede eliminar a un usuario admin. Sac\u00e1le primero el rol de admin desde Firebase.',
 };
 function _friendly(body) {
   if (body && body.ok === false && body.error && ERROR_MAP[body.error]) {
