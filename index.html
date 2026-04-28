@@ -1695,21 +1695,28 @@ async function guardarPago() {
     msg.innerHTML = '<div class="msg error">' + (res.error || 'Error al registrar') + '</div>';
   }
 }
+let _currentFijosDelCliente = []; // [{id (fijoDocId), horarioId}, ...]
 async function abrirHorariosFijos(clienteId) {
   horariosClienteId = clienteId;
   const c = todosClientes.find(c=>c.id===clienteId);
   document.getElementById('hf-titulo').textContent = 'Horarios fijos - ' + (c?.nombre||'');
   document.getElementById('hf-msg').innerHTML = '';
   if (!todosHorarios.length) await cargarHorarios();
-  // Obtener fijos actuales
+  // Cargar fijos actuales DEL CLIENTE (no todos los horarios)
   const res = await api('adminGetHorariosFijos');
-  const fijos = res.ok ? (res.horariosFijos||[]) : [];
-  // Renderizar lista de checkboxes
+  const todosLosFijos = res.ok ? (res.fijos||[]) : [];
+  _currentFijosDelCliente = todosLosFijos
+    .filter(f => (f.cliente_id||f.clienteId) === clienteId && (f.activo === true || f.activo === 'TRUE'))
+    .map(f => ({ id: f.id, horarioId: (f.horario_id||f.horarioId) }));
+  const horarioIdsActuales = new Set(_currentFijosDelCliente.map(f => f.horarioId));
+
+  // Render checkboxes — solo los del cliente vienen pre-tildados
   const orden = {Lunes:1,Martes:2,'Miercoles':3,Jueves:4,Viernes:5,'Sabado':6,Domingo:7};
-  const activos = todosHorarios.filter(h=>h.activo===true||h.activo==='TRUE').sort((a,b)=>(orden[a.dia]||9)-(orden[b.dia]||9)||a.hora.localeCompare(b.hora));
+  const activos = todosHorarios.filter(h=>h.activo===true||h.activo==='TRUE')
+    .sort((a,b)=>(orden[a.dia]||9)-(orden[b.dia]||9)||a.hora.localeCompare(b.hora));
   document.getElementById('hf-lista').innerHTML = activos.map(h=>`
     <label style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
-      <input type="checkbox" value="${h.id}" ${fijos.includes(h.id)?'checked':''} style="accent-color:var(--gold);width:16px;height:16px">
+      <input type="checkbox" value="${h.id}" ${horarioIdsActuales.has(h.id)?'checked':''} style="accent-color:var(--gold);width:16px;height:16px">
       <span style="font-size:13px">${h.dia} <strong>${h.hora}</strong> &#183; ${h.instructor} &#183; ${h.duracion}min</span>
     </label>`).join('');
   abrirModal('modal-horarios-fijos');
@@ -1718,13 +1725,30 @@ async function abrirHorariosFijos(clienteId) {
 async function guardarHorariosFijos() {
   showModalMsg('hf-msg','Guardando...','');
   const checks = document.querySelectorAll('#hf-lista input[type=checkbox]:checked');
-  const horariosFijos = [...checks].map(c=>c.value);
+  const seleccionados = new Set([...checks].map(c=>c.value));
+  const actuales = new Set(_currentFijosDelCliente.map(f => f.horarioId));
+
+  // Calcular diff: quitar los que estaban antes y ahora no están; agregar los nuevos.
+  const aQuitar = _currentFijosDelCliente.filter(f => !seleccionados.has(f.horarioId));
+  const aAgregar = [...seleccionados].filter(hid => !actuales.has(hid));
+
   let ok = true;
-  for (const horarioId of horariosFijos) {
-    const res = await api('adminSetHorarioFijo', { clienteId: horariosClienteId, horarioId });
-    if (!res.ok && res.error !== 'Ya tiene ese horario fijo') { ok = false; showModalMsg('hf-msg', res.error, 'error'); break; }
+  // Eliminar primero los destildados
+  for (const f of aQuitar) {
+    const res = await api('adminEliminarHorarioFijo', { id: f.id });
+    if (!res.ok) { ok = false; showModalMsg('hf-msg', res.error, 'error'); break; }
   }
-  if (ok) { cerrarModal('modal-horarios-fijos'); cargarFijos(); }
+  // Agregar los nuevos
+  if (ok) {
+    for (const horarioId of aAgregar) {
+      const res = await api('adminSetHorarioFijo', { clienteId: horariosClienteId, horarioId });
+      if (!res.ok) { ok = false; showModalMsg('hf-msg', res.error, 'error'); break; }
+    }
+  }
+  if (ok) {
+    showModalMsg('hf-msg', '✓ Guardado: ' + aAgregar.length + ' agregado(s), ' + aQuitar.length + ' quitado(s)', 'success');
+    setTimeout(() => { cerrarModal('modal-horarios-fijos'); cargarFijos(); }, 900);
+  }
 }
 
 // &#9472;&#9472; ABONOS CRUD &#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;&#9472;
