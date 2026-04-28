@@ -1426,6 +1426,7 @@ function renderClientes() {
         '<button class="btn btn-outline btn-sm" onclick="verFicha(\'' + c.id + '\')">Ficha</button>' +
         '<button class="btn btn-gold btn-sm" onclick="abrirPago(\'' + c.id + '\')">&#36; Pago</button>' +
         waLink +
+        '<button class="btn btn-danger btn-sm" title="Eliminar clienta" style="padding:7px 10px" onclick="eliminarCliente(\'' + c.id + '\',\'' + (c.nombre||'').replace(/\'/g, '&#39;') + '\')">&#128465;</button>' +
       '</div></div>';
   }).join('');
 }
@@ -1612,8 +1613,8 @@ async function confirmarEliminarCliente() {
   } else showModalMsg('modal-cliente-msg', res.error, 'error');
 }
 async function eliminarCliente(id, nombre) {
-  if (!await uiConfirm('Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + nombre + '?', okText:'S\u00ed, eliminar', danger:true})) return;
-  const res = await api('adminEliminarCliente', {id});
+  if (!await uiConfirm('Se borrar\u00e1n todos sus datos, reservas y pagos. Esta acci\u00f3n no se puede deshacer.', {title:'\u00bfEliminar a ' + (nombre || 'esta clienta') + '?', okText:'S\u00ed, eliminar', danger:true})) return;
+  const res = await api('adminEliminarCliente', {id, confirmar: 'SI'});
   if (res.ok) { cargarClientes(); cargarStats(); }
   else await uiAlert(res.error || 'Error al eliminar', {title:'Error'});
 }
